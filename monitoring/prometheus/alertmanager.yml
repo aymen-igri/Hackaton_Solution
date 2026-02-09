@@ -1,0 +1,25 @@
+global:
+  resolve_timeout: 5m
+
+# Route all alerts to the webhook receiver
+route:
+  receiver: 'webhook'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+receivers:
+  - name: 'webhook'
+    webhook_configs:
+      - url: 'http://alert-ingestion:8001/api/prometheus/webhook'
+        send_resolved: false
+        max_alerts: 0
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+

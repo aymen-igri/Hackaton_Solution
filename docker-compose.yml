@@ -22,6 +22,19 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── Redis ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: incident-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ─── Alert Ingestion Service ─────────────────────────────
   alert-ingestion:
     build: ./services/alert-ingestion
@@ -32,7 +45,7 @@ services:
       - "8001:8001"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_healthy 
     environment:
       PORT: 8001
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-incident_platform}
@@ -70,20 +83,20 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-incident_platform}
 
   # ─── Web UI (React) ─────────────────────────────────────
-  web-ui:
-    build: ./services/web-ui
-    container_name: web-ui
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    depends_on:
-      - alert-ingestion
-      - incident-management
-      - oncall-service
-    environment:
-      REACT_APP_ALERT_API: http://localhost:8001
-      REACT_APP_INCIDENT_API: http://localhost:8002
-      REACT_APP_ONCALL_API: http://localhost:8003
+  # web-ui:
+  #   build: ./services/web-ui
+  #   container_name: web-ui
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - alert-ingestion
+  #     - incident-management
+  #     - oncall-service
+  #   environment:
+  #     REACT_APP_ALERT_API: http://localhost:8001
+  #     REACT_APP_INCIDENT_API: http://localhost:8002
+  #     REACT_APP_ONCALL_API: http://localhost:8003
 
   # ─── Prometheus ──────────────────────────────────────────
   prometheus:
@@ -97,21 +110,21 @@ services:
       - prometheus_data:/prometheus
 
   # ─── Grafana ─────────────────────────────────────────────
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-    volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+  #     GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+  #   volumes:
+  #     - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+  #     - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+  #     - grafana_data:/var/lib/grafana
+  #   depends_on:
+  #     - prometheus
 
 volumes:
   postgres_data:

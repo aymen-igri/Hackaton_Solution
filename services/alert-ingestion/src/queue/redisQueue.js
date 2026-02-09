@@ -15,7 +15,7 @@ const config = require('../config');
 const rawAlertsQueue = new Queue('raw-alerts', config.redisUrl, {
   defaultJobOptions: {
     attempts: 1,
-    removeOnComplete: 100, // Keep last 100 completed jobs
+    removeOnComplete: 100, 
     removeOnFail: false,
   },
 });

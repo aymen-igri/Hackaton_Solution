@@ -1,0 +1,104 @@
+groups:
+  - name: service-health
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
+      
+      - alert: HighApiErrorRate
+        expr: (sum(rate(http_server_requests_seconds_count{status=~"^5.*"}[5m])) by (job)) / (sum(rate(http_server_requests_seconds_count[5m])) by (job)) > 0.05
+        for: 1m
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High API Error Rate for {{ $labels.job }}"
+          description: "The service {{ $labels.job }} has an API error rate of more than 5% for the last minute."
+
+  - name: alert-quality
+    rules:
+      - alert: HighCriticalAlertRate
+        expr: increase(alerts_received_total{severity="critical"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High rate of critical alerts"
+          description: "More than 5 critical alerts have been received in the last 5 minutes."
+
+      - alert: HighRateOfHighSeverityAlerts
+        expr: increase(alerts_received_total{severity="high"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High rate of 'high' severity alerts"
+          description: "More than 10 'high' severity alerts have been received in the last 5 minutes."
+
+      - alert: LowAlertCorrelationRate
+        expr: sum(rate(alerts_correlated_total{result="new_incident"}[5m])) / sum(rate(alerts_correlated_total[5m])) > 0.8
+        for: 10m
+        labels:
+          severity: "info"
+        annotations:
+          summary: "Low alert correlation rate"
+          description: "Over 80% of alerts are creating new incidents, indicating a possible issue with alert correlation or a widespread, multi-faceted outage."
+
+  - name: incident-lifecycle
+    rules:
+      - alert: IncidentOpenForTooLong
+        expr: incidents_total{status="open"} > 0
+        for: 15m
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "An incident has been open for more than 15 minutes"
+          description: "There is at least one incident that has been in the 'open' state for more than 15 minutes and is not acknowledged."
+
+      - alert: IncidentAcknowledgedForTooLong
+        expr: incidents_total{status="ack"} > 0
+        for: 1h
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "An incident has been acknowledged but not resolved for 1 hour"
+          description: "There is at least one incident in the 'acknowledged' state for over an hour. It might need attention to be resolved."
+
+      - alert: HighMTTA
+        expr: histogram_quantile(0.95, sum(rate(incident_mtta_seconds_bucket[1h])) by (le)) > 600
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High Mean Time to Acknowledge (MTTA)"
+          description: "The 95th percentile for incident acknowledgement time is over 10 minutes."
+
+      - alert: HighMTTR
+        expr: histogram_quantile(0.95, sum(rate(incident_mttr_seconds_bucket[1h])) by (le)) > 1800
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High Mean Time to Resolve (MTTR)"
+          description: "The 95th percentile for incident resolution time is over 30 minutes."
+
+  - name: oncall-activity
+    rules:
+      - alert: HighRateOfNotifications
+        expr: increase(oncall_notifications_sent_total[1m]) > 20
+        for: 1m
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High rate of on-call notifications"
+          description: "More than 20 on-call notifications have been sent in the last minute. This could indicate a flapping service."
+
+      - alert: HighEscalationRate
+        expr: increase(escalations_total[5m]) > 3
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High escalation rate"
+          description: "More than 3 escalations have occurred in the last 5 minutes across all teams."

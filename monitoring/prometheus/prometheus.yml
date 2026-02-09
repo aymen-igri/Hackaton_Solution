@@ -2,22 +2,16 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+rule_files:
+  - 'alert.rules.yml'
+
 scrape_configs:
-  - job_name: 'alert-ingestion'
+  - job_name: 'services'
     metrics_path: /metrics
     static_configs:
-      - targets: ['alert-ingestion:8001']
+      - targets: ['alert-ingestion:8001', 'incident-management:8002']
 
-  - job_name: 'incident-management'
+  - job_name: 'mock-metrics'
     metrics_path: /metrics
     static_configs:
-      - targets: ['incident-management:8002']
-
-  - job_name: 'oncall-service'
-    metrics_path: /metrics
-    static_configs:
-      - targets: ['oncall-service:8003']
-
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['host.docker.internal:8082']

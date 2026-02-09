@@ -1,3 +1,7 @@
+# Note: An external mock metrics service is expected to be running on the host machine at port 8081.
+# This service is used for simulating metrics and alerts for Prometheus testing.
+# To start it, navigate to ./services/mock-metrics and run 'npm install && node server.js'.
+
 version: '3.8'
 
 services:
@@ -12,7 +16,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d
@@ -88,7 +92,7 @@ services:
   #   container_name: web-ui
   #   restart: unless-stopped
   #   ports:
-  #     - "8080:8080"
+  #     - "8080:80"
   #   depends_on:
   #     - alert-ingestion
   #     - incident-management
@@ -107,24 +111,34 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
       - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
 
   # ─── Grafana ─────────────────────────────────────────────
-  # grafana:
-  #   image: grafana/grafana:latest
-  #   container_name: grafana
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-  #     GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-  #   volumes:
-  #     - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-  #     - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-  #     - grafana_data:/var/lib/grafana
-  #   depends_on:
-  #     - prometheus
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_INSTALL_PLUGINS: 'grafana-piechart-panel'
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

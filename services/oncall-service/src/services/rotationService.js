@@ -64,6 +64,7 @@ async function getSchedule(scheduleId) {
   return rows[0] || null;
 }
 
+// Compute the rotation index based on the rotation type and start date.
 function computeRotationIndex(rotationType, startDate, memberCount) {
   const start = new Date(startDate);
   const now = new Date();

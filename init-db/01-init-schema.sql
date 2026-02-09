@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     description     TEXT         DEFAULT '',
     status          VARCHAR(50)  NOT NULL DEFAULT 'open',   -- open, acknowledged, resolved, closed
     labels          JSONB        DEFAULT '{}',
+    assigned_to     VARCHAR(255),
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     acknowledged_at TIMESTAMPTZ,

@@ -283,7 +283,7 @@ describe('Normalization Service', () => {
         source: 'prometheus',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject alert without severity', () => {
@@ -295,7 +295,7 @@ describe('Normalization Service', () => {
         source: 'prometheus',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject alert without message', () => {
@@ -307,7 +307,7 @@ describe('Normalization Service', () => {
         source: 'prometheus',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject alert without timestamp', () => {
@@ -319,7 +319,7 @@ describe('Normalization Service', () => {
         source: 'prometheus',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject alert without labels', () => {
@@ -331,7 +331,7 @@ describe('Normalization Service', () => {
         source: 'prometheus',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject alert without alertname in labels', () => {
@@ -344,7 +344,7 @@ describe('Normalization Service', () => {
         source: 'prometheus',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject alert with wrong source', () => {
@@ -357,18 +357,18 @@ describe('Normalization Service', () => {
         source: 'other-source',
       };
 
-      expect(isValidNormalizedAlert(normalized)).toBe(false);
+      expect(isValidNormalizedAlert(normalized)).toBeFalsy();
     });
 
     it('should reject null or undefined', () => {
-      expect(isValidNormalizedAlert(null)).toBe(false);
-      expect(isValidNormalizedAlert(undefined)).toBe(false);
+      expect(isValidNormalizedAlert(null)).toBeFalsy();
+      expect(isValidNormalizedAlert(undefined)).toBeFalsy();
     });
 
     it('should reject non-object types', () => {
-      expect(isValidNormalizedAlert('string')).toBe(false);
-      expect(isValidNormalizedAlert(123)).toBe(false);
-      expect(isValidNormalizedAlert([])).toBe(false);
+      expect(isValidNormalizedAlert('string')).toBeFalsy();
+      expect(isValidNormalizedAlert(123)).toBeFalsy();
+      expect(isValidNormalizedAlert([])).toBeFalsy();
     });
   });
 });

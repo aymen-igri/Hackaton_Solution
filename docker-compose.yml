@@ -22,6 +22,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── Redis ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ─── Alert Ingestion Service ─────────────────────────────
   alert-ingestion:
     build: ./services/alert-ingestion
@@ -33,9 +49,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       PORT: 8001
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-incident_platform}
+      REDIS_URL: redis://redis:6379
+      PROMETHEUS_URL: http://prometheus:9090
       INCIDENT_SERVICE_URL: http://incident-management:8002
       ONCALL_SERVICE_URL: http://oncall-service:8003
 
@@ -94,7 +114,31 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
       - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    depends_on:
+      - alertmanager
+
+  # ─── Alertmanager ────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    depends_on:
+      - alert-ingestion
 
   # ─── Grafana ─────────────────────────────────────────────
   grafana:
@@ -115,5 +159,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   prometheus_data:
+  alertmanager_data:
   grafana_data:

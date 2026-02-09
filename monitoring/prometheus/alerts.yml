@@ -1,0 +1,64 @@
+groups:
+  - name: example_alerts
+    interval: 30s
+    rules:
+      # High memory usage alert
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: high
+          environment: production
+          team: platform
+        annotations:
+          summary: "Memory usage above 85% for 5 minutes"
+          description: "Instance {{ $labels.instance }} has {{ $value }}% memory usage"
+
+      # High CPU usage alert
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          environment: production
+          team: platform
+        annotations:
+          summary: "CPU usage above 80%"
+          description: "Instance {{ $labels.instance }} has high CPU usage: {{ $value }}%"
+
+      # Service down alert
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          environment: production
+          team: sre
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} is down"
+
+      # Disk space alert
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          environment: production
+          team: infrastructure
+        annotations:
+          summary: "Disk space below 10%"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has {{ $value }}% free space"
+
+      # High request error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: high
+          environment: production
+          team: backend
+        annotations:
+          summary: "High HTTP error rate detected"
+          description: "Service {{ $labels.service }} has error rate of {{ $value }} requests/sec"
+

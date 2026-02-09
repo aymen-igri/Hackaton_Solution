@@ -4,7 +4,7 @@ module.exports = {
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   oncallServiceUrl: process.env.ONCALL_SERVICE_URL || 'http://localhost:8003',
   queues: {
-    alerts: 'alerts:queue',             // the queue where alert-ingestion pushes alerts
+    alerts: 'successQueue',             // the queue where alert-ingestion pushes alerts
     incidents: 'incidents:queue',       // the queue where we push new incidents
     deadLetter: 'incidents:dead-letter', // failed messages go here
   },
@@ -12,5 +12,11 @@ module.exports = {
     brpopTimeoutSec: 5,   // BRPOP waits 5 seconds then loops
     retryDelayMs: 2000,   // wait 2s on error
     maxRetries: 3,         // max retry before dead-letter
+  },
+  incidentRules: {
+    deduplicationWindowMin: 14,  // look for open incidents within last N minutes
+    alertStormWindowMin: 10,     // count similar alerts within last N minutes
+    alertStormThreshold: 3,      // N+ similar alerts = alert storm → create incident
+    firingDurationMin: 5,        // alert firing longer than N min → create incident (for high sev)
   },
 };

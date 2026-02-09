@@ -17,7 +17,7 @@ router.post('/', async (req, res) => {
       INSERT INTO incidents (id, title, severity, source, description, status, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, 'open', $6, $6)
       RETURNING *`;
-    const { rows } = await pool.query(sql, [id, title, severity, source, description || '', now, now]);
+    const { rows } = await pool.query(sql, [id, title, severity, source, description || '', now]);
 
     // Link the originating alert
     if (alert_id) {

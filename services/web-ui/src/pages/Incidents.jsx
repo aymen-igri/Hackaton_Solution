@@ -1,19 +1,37 @@
 // Incidents Page Component
 import React, { useState } from 'react';
-
+import { IncidentDetails } from '../components/IncidentDetails';
 
 export const IncidentsPage = () => {
-  const [incidents] = useState([
-    { id: 1, title: 'Database Connection Timeout', severity: 'Critical', assignedTo: 'John Smith', status: 'In Progress', created: '2024-02-10 09:15' },
-    { id: 2, title: 'API Response Slow', severity: 'High', assignedTo: 'Sarah Johnson', status: 'Open', created: '2024-02-10 08:30' },
-    { id: 3, title: 'Login Page Error', severity: 'Medium', assignedTo: 'Mike Chen', status: 'In Progress', created: '2024-02-10 07:45' },
-    { id: 4, title: 'Email Service Down', severity: 'Critical', assignedTo: 'Emma Wilson', status: 'Open', created: '2024-02-09 22:15' },
-    { id: 5, title: 'Cache Not Clearing', severity: 'Low', assignedTo: 'Tom Anderson', status: 'Pending', created: '2024-02-09 20:30' },
-    { id: 6, title: 'SSL Certificate Expiring', severity: 'High', assignedTo: 'Lisa Brown', status: 'Open', created: '2024-02-09 18:00' },
-    { id: 7, title: 'Payment Gateway Issue', severity: 'Critical', assignedTo: 'David Lee', status: 'In Progress', created: '2024-02-09 15:45' },
-    { id: 8, title: 'Mobile App Crash', severity: 'High', assignedTo: 'Amy Zhang', status: 'Open', created: '2024-02-09 14:20' },
-    { id: 9, title: 'Report Generation Failure', severity: 'Medium', assignedTo: 'Chris Taylor', status: 'Pending', created: '2024-02-09 11:30' },
+  const [incidents, setIncidents] = useState([
+    { id: 1, title: 'Database Connection Timeout', severity: 'Critical', assignedTo: 'John Smith', status: 'In Progress', created: '2024-02-10 09:15', note: '' },
+    { id: 2, title: 'API Response Slow', severity: 'High', assignedTo: 'Sarah Johnson', status: 'Open', created: '2024-02-10 08:30', note: '' },
+    { id: 3, title: 'Login Page Error', severity: 'Medium', assignedTo: 'Mike Chen', status: 'In Progress', created: '2024-02-10 07:45', note: '' },
+    { id: 4, title: 'Email Service Down', severity: 'Critical', assignedTo: 'Emma Wilson', status: 'Open', created: '2024-02-09 22:15', note: '' },
+    { id: 5, title: 'Cache Not Clearing', severity: 'Low', assignedTo: 'Tom Anderson', status: 'Pending', created: '2024-02-09 20:30', note: '' },
+    { id: 6, title: 'SSL Certificate Expiring', severity: 'High', assignedTo: 'Lisa Brown', status: 'Open', created: '2024-02-09 18:00', note: '' },
+    { id: 7, title: 'Payment Gateway Issue', severity: 'Critical', assignedTo: 'David Lee', status: 'In Progress', created: '2024-02-09 15:45', note: '' },
+    { id: 8, title: 'Mobile App Crash', severity: 'High', assignedTo: 'Amy Zhang', status: 'Open', created: '2024-02-09 14:20', note: '' },
+    { id: 9, title: 'Report Generation Failure', severity: 'Medium', assignedTo: 'Chris Taylor', status: 'Pending', created: '2024-02-09 11:30', note: '' },
   ]);
+
+  const [selectedIncident, setSelectedIncident] = useState(null);
+
+  const openIncidentDetails = (incident) => {
+    setSelectedIncident(incident);
+  };
+
+  const closeIncidentDetails = () => {
+    setSelectedIncident(null);
+  };
+
+  const updateIncident = (updatedIncident) => {
+    setIncidents(prev => 
+      prev.map(incident => 
+        incident.id === updatedIncident.id ? updatedIncident : incident
+      )
+    );
+  };
 
   return (
     <main style={{ padding: '3rem 2rem' }}>
@@ -61,6 +79,7 @@ export const IncidentsPage = () => {
               transition: 'background-color 0.2s',
               cursor: 'pointer'
             }}
+            onClick={() => openIncidentDetails(incident)}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#111'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
@@ -84,6 +103,15 @@ export const IncidentsPage = () => {
           </div>
         ))}
       </div>
+
+      {/* Render the modal when an incident is selected */}
+      {selectedIncident && (
+        <IncidentDetails
+          incident={selectedIncident}
+          onClose={closeIncidentDetails}
+          onUpdate={updateIncident}
+        />
+      )}
     </main>
   );
 };

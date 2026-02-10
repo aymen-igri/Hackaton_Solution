@@ -1,15 +1,54 @@
 // Schedule Page Component
 import React, { useState } from 'react';
-
+import { ScheduleDetails } from '../components/ScheduleDetails';
 
 export const SchedulePage = () => {
-  const [schedules] = useState([
+  const [schedules, setSchedules] = useState([
     { id: 1, team: 'Team Alpha', member: 'John Smith', shift: 'Morning (6:00 AM - 2:00 PM)', date: '2024-02-10' },
     { id: 2, team: 'Team Alpha', member: 'Sarah Johnson', shift: 'Afternoon (2:00 PM - 10:00 PM)', date: '2024-02-10' },
     { id: 3, team: 'Team Beta', member: 'Mike Chen', shift: 'Night (10:00 PM - 6:00 AM)', date: '2024-02-10' },
     { id: 4, team: 'Team Beta', member: 'Emma Wilson', shift: 'Morning (6:00 AM - 2:00 PM)', date: '2024-02-11' },
     { id: 5, team: 'Team Gamma', member: 'Tom Anderson', shift: 'Afternoon (2:00 PM - 10:00 PM)', date: '2024-02-11' },
   ]);
+
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+
+  const openScheduleDetails = (schedule) => {
+    setSelectedSchedule(schedule);
+    setIsAddingNew(false);
+  };
+
+  const openAddSchedule = () => {
+    setSelectedSchedule({
+      id: null,
+      team: '',
+      member: '',
+      shift: '',
+      date: new Date().toISOString().split('T')[0]
+    });
+    setIsAddingNew(true);
+  };
+
+  const closeScheduleDetails = () => {
+    setSelectedSchedule(null);
+    setIsAddingNew(false);
+  };
+
+  const updateSchedule = (updatedSchedule) => {
+    if (isAddingNew) {
+      // Adding new schedule
+      const newId = Math.max(...schedules.map(s => s.id), 0) + 1;
+      setSchedules(prev => [...prev, { ...updatedSchedule, id: newId }]);
+    } else {
+      // Updating existing schedule
+      setSchedules(prev => 
+        prev.map(schedule => 
+          schedule.id === updatedSchedule.id ? updatedSchedule : schedule
+        )
+      );
+    }
+  };
 
   return (
     <main style={{ padding: '3rem 2rem' }}>
@@ -56,6 +95,7 @@ export const SchedulePage = () => {
               transition: 'background-color 0.2s',
               cursor: 'pointer'
             }}
+            onClick={() => openScheduleDetails(schedule)}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#111'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
@@ -69,27 +109,39 @@ export const SchedulePage = () => {
 
       {/* Add Schedule Button */}
       <div style={{ marginTop: '2rem' }}>
-        <button style={{
-          backgroundColor: '#ffffff',
-          border: 'none',
-          color: '#000000',
-          padding: '0.75rem 2rem',
-          borderRadius: '6px',
-          fontSize: '0.875rem',
-          fontWeight: '600',
-          cursor: 'pointer',
-          transition: 'all 0.2s'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#dddddd';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#ffffff';
-        }}
+        <button 
+          onClick={openAddSchedule}
+          style={{
+            backgroundColor: '#ffffff',
+            border: 'none',
+            color: '#000000',
+            padding: '0.75rem 2rem',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#dddddd';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#ffffff';
+          }}
         >
           + Add Schedule
         </button>
       </div>
+
+      {/* Render the modal when a schedule is selected */}
+      {selectedSchedule && (
+        <ScheduleDetails
+          schedule={selectedSchedule}
+          onClose={closeScheduleDetails}
+          onUpdate={updateSchedule}
+          isAddingNew={isAddingNew}
+        />
+      )}
     </main>
   );
 };

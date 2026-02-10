@@ -137,15 +137,14 @@ async function createIncident(alertData, reason) {
   ]);
   const incident = rows[0];
 
-  // Link alert → incident
-  if (alertData.alert_id) {
-    await pool.query(
-      'INSERT INTO incident_alerts (alert_id, incident_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [alertData.alert_id, id],
-    );
-  }
+  // Link alert → incident (alert_id is always set by processAlert)
+  const linkResult = await pool.query(
+    'INSERT INTO incident_alerts (alert_id, incident_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+    [alertData.alert_id, id],
+  );
 
   console.log(`[alertConsumer] ✅ INCIDENT CREATED  ${id}`);
+  console.log(`[alertConsumer]    🔗 Alert ${alertData.alert_id} linked to incident ${id}`);
   console.log(`[alertConsumer]    Reason: ${reason}`);
   console.log(`[alertConsumer]    Alert: severity=${alertData.severity}, source=${alertData.source}, title="${alertData.title}"`);
 
@@ -167,20 +166,27 @@ async function createIncident(alertData, reason) {
  * Attach an alert to an existing incident (deduplication).
  */
 async function attachToExisting(alertData, existingIncident, reason) {
-  if (alertData.alert_id) {
-    await pool.query(
-      'INSERT INTO incident_alerts (alert_id, incident_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [alertData.alert_id, existingIncident.id],
-    );
-  }
+  // Link alert → existing incident (alert_id is always set by processAlert)
+  const linkResult = await pool.query(
+    'INSERT INTO incident_alerts (alert_id, incident_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+    [alertData.alert_id, existingIncident.id],
+  );
 
-  // Update the incident's updated_at
+  // Update the incident's updated_at to reflect new alert attached
   await pool.query(
     'UPDATE incidents SET updated_at = NOW() WHERE id = $1',
     [existingIncident.id],
   );
 
+  // Count total alerts linked to this incident
+  const countResult = await pool.query(
+    'SELECT COUNT(*) as alert_count FROM incident_alerts WHERE incident_id = $1',
+    [existingIncident.id],
+  );
+  const alertCount = countResult.rows[0].alert_count;
+
   console.log(`[alertConsumer] 🔗 ATTACHED to incident ${existingIncident.id}`);
+  console.log(`[alertConsumer]    Alert ${alertData.alert_id} linked (total alerts: ${alertCount})`);
   console.log(`[alertConsumer]    Reason: ${reason}`);
   console.log(`[alertConsumer]    Alert: severity=${alertData.severity}, source=${alertData.source}, title="${alertData.title}"`);
 }
@@ -212,7 +218,9 @@ async function processAlert(alertData) {
 
     case 'skip':
     default:
+      // Alert is persisted but not linked to any incident (didn't meet criteria)
       console.log(`[alertConsumer] ⏭️  SKIPPED — ${decision.reason}`);
+      console.log(`[alertConsumer]    Alert ${alertData.alert_id} persisted but not linked to incident`);
       console.log(`[alertConsumer]    Alert: severity=${alertData.severity}, source=${alertData.source}, title="${alertData.title}"`);
       break;
   }

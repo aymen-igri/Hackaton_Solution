@@ -1,81 +1,101 @@
-const Queue = require('bull');
+const Redis = require('ioredis');
 const config = require('../config');
 
 /**
- * Redis Queue Manager
+ * Redis Queue Manager (Simple Lists)
  *
- * Manages three separate queues for alert processing:
+ * Uses simple Redis lists with LPUSH/BRPOP for queue operations.
+ * This is compatible with incident-management service which uses BRPOP.
+ *
+ * Queue names:
  * - rawAlertsQueue: Stores unverified alerts from Prometheus
- * - successQueue: Stores successfully normalized alerts
+ * - successQueue: Stores successfully normalized alerts (consumed by incident-management)
  * - retryQueue: Stores alerts that failed normalization (to be retried)
  * - errorQueue: Stores alerts that exceeded max retries
  */
 
-// Create queue instances
-const rawAlertsQueue = new Queue('raw-alerts', config.redisUrl, {
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: 100, 
-    removeOnFail: false,
-  },
-});
+// Create Redis client
+const redis = new Redis(config.redisUrl);
 
-const successQueue = new Queue('success-alerts', config.redisUrl, {
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: 500,
-    removeOnFail: false,
-  },
-});
+// Queue names as simple strings
+const QUEUE_NAMES = {
+  raw: 'rawAlertsQueue',
+  success: 'successQueue',      // Must match incident-management config
+  retry: 'retryQueue',
+  error: 'errorQueue',
+};
 
-const retryQueue = new Queue('retry-alerts', config.redisUrl, {
-  defaultJobOptions: {
-    attempts: config.normalization.maxRetries,
-    backoff: {
-      type: 'fixed',
-      delay: config.normalization.retryDelayMs,
-    },
-    removeOnComplete: 100,
-    removeOnFail: false,
-  },
-});
+// Stats tracking
+let stats = {
+  raw: { added: 0, processed: 0 },
+  success: { added: 0 },
+  retry: { added: 0 },
+  error: { added: 0 },
+};
 
-const errorQueue = new Queue('error-alerts', config.redisUrl, {
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: false,
-    removeOnFail: false,
-  },
-});
-
-// Queue event listeners for monitoring
-rawAlertsQueue.on('completed', (job) => {
-  console.log(`[rawAlertsQueue] Job ${job.id} completed`);
-});
-
-rawAlertsQueue.on('failed', (job, err) => {
-  console.error(`[rawAlertsQueue] Job ${job.id} failed:`, err.message);
-});
-
-successQueue.on('completed', (job) => {
-  console.log(`[successQueue] Job ${job.id} completed`);
-});
-
-retryQueue.on('failed', async (job, err) => {
-  console.error(`[retryQueue] Job ${job.id} failed (attempt ${job.attemptsMade}):`, err.message);
-
-  // If max retries exceeded, move to error queue
-  if (job.attemptsMade >= config.normalization.maxRetries) {
-    console.log(`[retryQueue] Moving job ${job.id} to error queue after ${job.attemptsMade} attempts`);
-    await errorQueue.add(job.data, {
-      jobId: `error-${job.id}`,
-    });
+/**
+ * Simple queue wrapper that mimics Bull-like interface
+ */
+class SimpleQueue {
+  constructor(name, redisClient) {
+    this.name = name;
+    this.redis = redisClient;
+    this.processor = null;
+    this.isProcessing = false;
   }
-});
 
-errorQueue.on('completed', (job) => {
-  console.log(`[errorQueue] Job ${job.id} logged to error queue`);
-});
+  async add(data) {
+    const job = {
+      id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      data,
+      timestamp: new Date().toISOString(),
+    };
+    await this.redis.lpush(this.name, JSON.stringify(job));
+    console.log(`[${this.name}] Job ${job.id} added`);
+    return job;
+  }
+
+  process(handler) {
+    this.processor = handler;
+    this._startProcessing();
+  }
+
+  async _startProcessing() {
+    if (this.isProcessing || !this.processor) return;
+    this.isProcessing = true;
+
+    console.log(`[${this.name}] Started processing...`);
+
+    while (this.isProcessing) {
+      try {
+        const result = await this.redis.brpop(this.name, 5);
+        if (result) {
+          const [, message] = result;
+          const job = JSON.parse(message);
+          try {
+            await this.processor(job);
+            console.log(`[${this.name}] Job ${job.id} completed`);
+          } catch (err) {
+            console.error(`[${this.name}] Job ${job.id} failed:`, err.message);
+          }
+        }
+      } catch (err) {
+        console.error(`[${this.name}] Processing error:`, err.message);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+
+  async close() {
+    this.isProcessing = false;
+  }
+}
+
+// Create queue instances
+const rawAlertsQueue = new SimpleQueue(QUEUE_NAMES.raw, redis);
+const successQueue = new SimpleQueue(QUEUE_NAMES.success, redis);
+const retryQueue = new SimpleQueue(QUEUE_NAMES.retry, redis);
+const errorQueue = new SimpleQueue(QUEUE_NAMES.error, redis);
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
@@ -83,12 +103,15 @@ process.on('SIGTERM', async () => {
   await successQueue.close();
   await retryQueue.close();
   await errorQueue.close();
+  await redis.quit();
 });
 
 module.exports = {
+  redis,
   rawAlertsQueue,
   successQueue,
   retryQueue,
   errorQueue,
+  QUEUE_NAMES,
 };
 

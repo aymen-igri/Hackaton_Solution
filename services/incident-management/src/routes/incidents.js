@@ -10,11 +10,14 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const router = Router();
 
 /**
- * Generate a secure random token for magic link acknowledgment
+ * Generate a secure random token for magic links
  */
-function generateAckToken() {
+function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
+
+// Alias for backward compatibility
+const generateAckToken = generateToken;
 
 // POST /api/incidents – Create incident (public - called by alert-ingestion service)
 router.post('/', async (req, res) => {
@@ -54,11 +57,94 @@ router.post('/', async (req, res) => {
 });
 
 // ============================================================
-// MAGIC LINK - Stateful: open → acknowledged → resolved
+// TOKEN INFO ENDPOINTS (for frontend display)
+// No authentication required - token acts as auth
+// ============================================================
+
+// GET /api/incidents/info/ack/:token – Get incident info for acknowledge page (PUBLIC)
+router.get('/info/ack/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const { rows } = await pool.query(
+      `SELECT id, title, severity, source, description, status, assigned_to, 
+              created_at, updated_at, acknowledged_at, resolved_at 
+       FROM incidents WHERE ack_token = $1`,
+      [token]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Invalid or expired token' });
+    }
+
+    const incident = rows[0];
+    
+    // Get linked alerts count
+    const alertsResult = await pool.query(
+      'SELECT COUNT(*) as alert_count FROM incident_alerts WHERE incident_id = $1',
+      [incident.id]
+    );
+    incident.alert_count = parseInt(alertsResult.rows[0].alert_count);
+
+    res.json({
+      incident,
+      action: incident.status === 'open' ? 'acknowledge' : null,
+      message: incident.status === 'open' 
+        ? 'Click the button below to acknowledge this incident'
+        : `This incident is already ${incident.status}`
+    });
+  } catch (err) {
+    console.error('[incidents] Error fetching incident info by ack token:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/incidents/info/resolve/:token – Get incident info for resolve page (PUBLIC)
+router.get('/info/resolve/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const { rows } = await pool.query(
+      `SELECT id, title, severity, source, description, status, assigned_to, 
+              created_at, updated_at, acknowledged_at, resolved_at 
+       FROM incidents WHERE resolve_token = $1`,
+      [token]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Invalid or expired token' });
+    }
+
+    const incident = rows[0];
+    
+    // Get linked alerts count
+    const alertsResult = await pool.query(
+      'SELECT COUNT(*) as alert_count FROM incident_alerts WHERE incident_id = $1',
+      [incident.id]
+    );
+    incident.alert_count = parseInt(alertsResult.rows[0].alert_count);
+
+    res.json({
+      incident,
+      action: incident.status === 'acknowledged' ? 'resolve' : null,
+      message: incident.status === 'acknowledged' 
+        ? 'Click the button below to mark this incident as resolved'
+        : incident.status === 'open'
+          ? 'This incident must be acknowledged first'
+          : `This incident is already ${incident.status}`
+    });
+  } catch (err) {
+    console.error('[incidents] Error fetching incident info by resolve token:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================
+// MAGIC LINKS - Separate acknowledge and resolve flows
 // No authentication required!
 // ============================================================
 
-// GET /api/incidents/ack/:token – Progress incident state via magic link (PUBLIC)
+// GET /api/incidents/ack/:token – Acknowledge incident via magic link (PUBLIC)
 router.get('/ack/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -81,36 +167,139 @@ router.get('/ack/:token', async (req, res) => {
     }
 
     const incident = rows[0];
-    const ackUrl = `${req.protocol}://${req.get('host')}/api/incidents/ack/${token}`;
 
-    // STATE MACHINE: open → acknowledged → resolved
+    // Only allow acknowledge if status is 'open'
     if (incident.status === 'open') {
-      // First click: ACKNOWLEDGE
+      // Generate a new resolve token
+      const resolve_token = generateToken();
+
+      // Update incident: acknowledged + store resolve_token
       const { rows: updated } = await pool.query(
         `UPDATE incidents 
-         SET status = 'acknowledged', acknowledged_at = $1, updated_at = $1
-         WHERE id = $2 
+         SET status = 'acknowledged', acknowledged_at = $1, updated_at = $1, resolve_token = $2
+         WHERE id = $3 
          RETURNING *`,
-        [now, incident.id]
+        [now, resolve_token, incident.id]
       );
 
+      const updatedIncident = updated[0];
       console.log(`[incidents] Incident ${incident.id} ACKNOWLEDGED via magic link`);
+
+      // Send confirmation email with resolve link (frontend URL)
+      const resolveUrl = `${config.dashboardUrl}/resolve/${resolve_token}`;
+      
+      // Get engineer info for notification
+      if (incident.assigned_to) {
+        try {
+          const notificationPayload = {
+            type: 'acknowledgment_confirmation',
+            incident: {
+              id: updatedIncident.id,
+              title: updatedIncident.title,
+              severity: updatedIncident.severity,
+              description: updatedIncident.description,
+              source: updatedIncident.source,
+              status: updatedIncident.status,
+              resolve_token: resolve_token,
+              acknowledged_at: updatedIncident.acknowledged_at,
+              created_at: updatedIncident.created_at,
+            },
+            engineer: {
+              email: incident.assigned_to,
+              name: incident.assigned_to.split('@')[0],
+            },
+            resolveUrl: resolveUrl,
+            channels: ['email'],
+          };
+
+          await redis.lpush(config.queues.notifications, JSON.stringify(notificationPayload));
+          console.log(`[incidents] 📧 Acknowledgment confirmation queued with resolve link`);
+        } catch (notifyErr) {
+          console.error('[incidents] Failed to queue confirmation notification:', notifyErr.message);
+        }
+      }
 
       if (req.headers.accept?.includes('text/html')) {
         return res.send(buildHtmlPage(
           '✅ Incident Acknowledged',
           `<p>You have acknowledged incident <strong>${incident.title}</strong>.</p>
-           <p>Once you've fixed the issue, click the button below to mark it as resolved.</p>`,
+           <p>A confirmation email has been sent with a link to resolve this incident when fixed.</p>
+           <p>Check your email for the <strong>RESOLVE</strong> link.</p>`,
           'success',
-          incident,
-          ackUrl,
-          'Mark as Resolved'
+          updatedIncident
         ));
       }
-      return res.json({ message: 'Incident acknowledged', status: 'acknowledged', incident: updated[0] });
+      return res.json({ 
+        message: 'Incident acknowledged. Check your email for the resolve link.', 
+        status: 'acknowledged', 
+        incident: updatedIncident 
+      });
 
     } else if (incident.status === 'acknowledged') {
-      // Second click: RESOLVE
+      // Already acknowledged - remind them to use resolve link
+      if (req.headers.accept?.includes('text/html')) {
+        return res.send(buildHtmlPage(
+          '📋 Already Acknowledged',
+          `<p>This incident was already acknowledged.</p>
+           <p>To resolve it, please use the <strong>RESOLVE</strong> link sent to your email.</p>`,
+          'info',
+          incident
+        ));
+      }
+      return res.json({
+        message: 'Incident already acknowledged. Use the resolve link from your email to mark it resolved.',
+        status: 'acknowledged',
+        incident: { id: incident.id, title: incident.title, status: incident.status }
+      });
+
+    } else {
+      // Already resolved or closed
+      if (req.headers.accept?.includes('text/html')) {
+        return res.send(buildHtmlPage(
+          '📋 Incident Already ' + capitalize(incident.status),
+          `<p>This incident was already ${incident.status}.</p>
+           <p>Resolved at: ${incident.resolved_at ? new Date(incident.resolved_at).toLocaleString() : 'N/A'}</p>`,
+          'info',
+          incident
+        ));
+      }
+      return res.json({
+        message: `Incident already ${incident.status}`,
+        incident: { id: incident.id, title: incident.title, status: incident.status }
+      });
+    }
+  } catch (err) {
+    console.error('[incidents] Error with acknowledge link:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/incidents/resolve/:token – Resolve incident via magic link (PUBLIC)
+router.get('/resolve/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const now = new Date().toISOString();
+
+    // Find incident by resolve_token
+    const { rows } = await pool.query(
+      'SELECT * FROM incidents WHERE resolve_token = $1',
+      [token]
+    );
+
+    if (!rows.length) {
+      if (req.headers.accept?.includes('text/html')) {
+        return res.status(404).send(buildHtmlPage('❌ Invalid Link', 'This resolve link is not valid or has expired.', 'error'));
+      }
+      return res.status(404).json({ 
+        error: 'Invalid or expired link',
+        message: 'This resolve link is not valid.'
+      });
+    }
+
+    const incident = rows[0];
+
+    // Only allow resolve if status is 'acknowledged'
+    if (incident.status === 'acknowledged') {
       const { rows: updated } = await pool.query(
         `UPDATE incidents 
          SET status = 'resolved', resolved_at = $1, updated_at = $1
@@ -132,6 +321,23 @@ router.get('/ack/:token', async (req, res) => {
       }
       return res.json({ message: 'Incident resolved', status: 'resolved', incident: updated[0] });
 
+    } else if (incident.status === 'open') {
+      // Not yet acknowledged
+      if (req.headers.accept?.includes('text/html')) {
+        return res.send(buildHtmlPage(
+          '⚠️ Not Yet Acknowledged',
+          `<p>This incident must be acknowledged before it can be resolved.</p>
+           <p>Please use the <strong>ACKNOWLEDGE</strong> link from the original notification first.</p>`,
+          'error',
+          incident
+        ));
+      }
+      return res.json({
+        message: 'Incident must be acknowledged before it can be resolved',
+        status: 'open',
+        incident: { id: incident.id, title: incident.title, status: incident.status }
+      });
+
     } else {
       // Already resolved or closed
       if (req.headers.accept?.includes('text/html')) {
@@ -149,7 +355,7 @@ router.get('/ack/:token', async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('[incidents] Error with magic link:', err);
+    console.error('[incidents] Error with resolve link:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

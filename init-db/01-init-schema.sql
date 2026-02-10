@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     labels          JSONB        DEFAULT '{}',
     assigned_to     VARCHAR(255),
     ack_token       VARCHAR(64)  UNIQUE,                    -- Magic link token for acknowledgment
+    resolve_token   VARCHAR(64)  UNIQUE,                    -- Magic link token for resolution (generated on ack)
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     acknowledged_at TIMESTAMPTZ,

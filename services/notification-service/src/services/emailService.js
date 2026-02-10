@@ -200,7 +200,7 @@ class EmailService {
         <div class="label">Assigned To</div>
         <div class="value">${engineer.name} (${engineer.email})</div>
       </div>
-      ${incident.ack_token ? `<a href="${config.incidentApiUrl}/api/incidents/ack/${incident.ack_token}" class="button-ack">✅ ACKNOWLEDGE NOW</a>` : ''}
+      ${incident.ack_token ? `<a href="${config.dashboardUrl}/acknowledge/${incident.ack_token}" class="button-ack">✅ ACKNOWLEDGE NOW</a>` : ''}
       <a href="${incidentUrl}" class="button">View Details</a>
     </div>
     <div class="footer">
@@ -217,7 +217,7 @@ class EmailService {
    */
   _buildIncidentEmailText(incident, engineer) {
     const ackLink = incident.ack_token 
-      ? `\n✅ ACKNOWLEDGE NOW: ${config.incidentApiUrl}/api/incidents/ack/${incident.ack_token}\n`
+      ? `\n✅ ACKNOWLEDGE NOW: ${config.dashboardUrl}/acknowledge/${incident.ack_token}\n`
       : '';
 
     return `
@@ -235,6 +235,163 @@ View Incident: ${config.dashboardUrl}/incidents/${incident.id}
 ---
 This is an automated notification from the Incident Management Platform.
 Click the ACKNOWLEDGE link to confirm you've received this incident.
+`.trim();
+  }
+
+  /**
+   * Send acknowledgment confirmation email with resolve link
+   */
+  async sendAcknowledgmentConfirmation(notification) {
+    const { incident, engineer, resolveUrl } = notification;
+
+    const subject = `✅ Incident #${incident.id} Acknowledged - Resolve Link Inside`;
+    
+    const html = this._buildAcknowledgmentConfirmationHtml(incident, engineer, resolveUrl);
+    const text = this._buildAcknowledgmentConfirmationText(incident, engineer, resolveUrl);
+
+    return this.send({
+      to: engineer.email,
+      subject,
+      html,
+      text
+    });
+  }
+
+  /**
+   * Build HTML email for acknowledgment confirmation
+   */
+  _buildAcknowledgmentConfirmationHtml(incident, engineer, resolveUrl) {
+    const severityColor = {
+      critical: '#dc3545',
+      high: '#fd7e14',
+      warning: '#ffc107',
+      low: '#28a745',
+      info: '#17a2b8'
+    }[incident.severity] || '#6c757d';
+
+    const incidentUrl = `${config.dashboardUrl}/incidents/${incident.id}`;
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #28a745; color: white; padding: 15px; border-radius: 5px 5px 0 0; }
+    .content { background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; }
+    .field { margin-bottom: 15px; }
+    .label { font-weight: bold; color: #495057; }
+    .value { margin-top: 5px; }
+    .severity-badge { 
+      display: inline-block; 
+      padding: 4px 12px; 
+      border-radius: 4px; 
+      background: ${severityColor}; 
+      color: white; 
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-top: 15px;
+      margin-right: 10px;
+    }
+    .button-resolve {
+      display: inline-block;
+      padding: 14px 28px;
+      background: #17a2b8;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .footer { padding: 15px; font-size: 12px; color: #6c757d; text-align: center; }
+    .success-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2 style="margin: 0;">✅ Incident Acknowledged</h2>
+    </div>
+    <div class="content">
+      <div class="success-box">
+        <strong>Thank you!</strong> You have successfully acknowledged this incident.
+      </div>
+      <div class="field">
+        <div class="label">Incident ID</div>
+        <div class="value">#${incident.id}</div>
+      </div>
+      <div class="field">
+        <div class="label">Title</div>
+        <div class="value">${incident.title}</div>
+      </div>
+      <div class="field">
+        <div class="label">Severity</div>
+        <div class="value"><span class="severity-badge">${incident.severity}</span></div>
+      </div>
+      <div class="field">
+        <div class="label">Status</div>
+        <div class="value"><strong>ACKNOWLEDGED</strong> - awaiting resolution</div>
+      </div>
+      <div class="field">
+        <div class="label">Acknowledged By</div>
+        <div class="value">${engineer.name} (${engineer.email})</div>
+      </div>
+      <div class="field">
+        <div class="label">Acknowledged At</div>
+        <div class="value">${new Date().toLocaleString()}</div>
+      </div>
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #dee2e6;">
+      <p><strong>Next step:</strong> Once you've fixed the issue, click the button below to mark it as resolved.</p>
+      <a href="${resolveUrl}" class="button-resolve">🔧 RESOLVE INCIDENT</a>
+      <a href="${incidentUrl}" class="button">View Details</a>
+    </div>
+    <div class="footer">
+      <p>This is an automated notification from the Incident Management Platform.</p>
+      <p>Click "RESOLVE INCIDENT" when the issue has been fixed.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
+   * Build plain text for acknowledgment confirmation
+   */
+  _buildAcknowledgmentConfirmationText(incident, engineer, resolveUrl) {
+    return `
+✅ INCIDENT ACKNOWLEDGED
+
+Thank you! You have successfully acknowledged this incident.
+
+---
+
+Incident ID: #${incident.id}
+Title: ${incident.title}
+Severity: ${incident.severity.toUpperCase()}
+Status: ACKNOWLEDGED - awaiting resolution
+Acknowledged By: ${engineer.name} (${engineer.email})
+Acknowledged At: ${new Date().toLocaleString()}
+
+---
+
+NEXT STEP: Once you've fixed the issue, click the link below to mark it as resolved.
+
+🔧 RESOLVE INCIDENT: ${resolveUrl}
+
+View Incident: ${config.dashboardUrl}/incidents/${incident.id}
+
+---
+This is an automated notification from the Incident Management Platform.
 `.trim();
   }
 

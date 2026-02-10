@@ -3,7 +3,7 @@ module.exports = {
   databaseUrl: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/incident_platform',
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   oncallServiceUrl: process.env.ONCALL_SERVICE_URL || 'http://localhost:8003',
-  dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:8080',
+  dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:3000',
   queues: {
     alerts: 'successQueue',                 // the queue where alert-ingestion pushes alerts
     incidents: 'incidents:queue',           // the queue where we push new incidents

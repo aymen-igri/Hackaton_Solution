@@ -126,7 +126,7 @@ class SmsService {
 
     // If ack_token exists, use magic link for acknowledgment
     if (incident.ack_token) {
-      const ackUrl = `${config.incidentApiUrl}/api/incidents/ack/${incident.ack_token}`;
+      const ackUrl = `${config.dashboardUrl}/acknowledge/${incident.ack_token}`;
       return `${severityEmoji} INCIDENT #${incident.id.substring(0, 8)}
 ${incident.severity.toUpperCase()}: ${incident.title.substring(0, 40)}
 ACK: ${ackUrl}`;

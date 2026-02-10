@@ -186,6 +186,61 @@ class NotificationService {
   }
 
   /**
+   * Send acknowledgment confirmation notification with resolve link
+   */
+  async sendAcknowledgmentConfirmationNotification(data) {
+    const { incident, engineer, resolveUrl, channels = ['email'] } = data;
+
+    logger.info('Sending acknowledgment confirmation notification', {
+      incidentId: incident.id,
+      engineerId: engineer.id,
+      engineerName: engineer.name,
+      resolveUrl
+    });
+
+    const results = {
+      incidentId: incident.id,
+      engineerId: engineer.id,
+      type: 'acknowledgment_confirmation',
+      timestamp: new Date().toISOString(),
+      channels: {}
+    };
+
+    // Send email with resolve link
+    if (channels.includes('email') && engineer.email) {
+      try {
+        results.channels.email = await emailService.sendAcknowledgmentConfirmation({ 
+          incident, 
+          engineer, 
+          resolveUrl 
+        });
+        results.channels.email.success = true;
+        logger.info('Acknowledgment confirmation email sent', {
+          incidentId: incident.id,
+          engineerEmail: engineer.email
+        });
+      } catch (error) {
+        results.channels.email = {
+          success: false,
+          error: error.message
+        };
+        logger.error('Acknowledgment confirmation email failed', {
+          incidentId: incident.id,
+          error: error.message
+        });
+      }
+    }
+
+    // Track notification
+    this._trackNotification(results);
+
+    const anySuccess = Object.values(results.channels).some(ch => ch.success);
+    results.success = anySuccess;
+
+    return results;
+  }
+
+  /**
    * Track notification in history
    */
   _trackNotification(notification) {

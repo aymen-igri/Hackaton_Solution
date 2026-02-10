@@ -47,7 +47,7 @@ module.exports = {
   },
 
   // Incident dashboard URL (for links in notifications)
-  dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:8080',
+  dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:3000',
   
   // Incident management API URL (for acknowledge links)
   incidentApiUrl: process.env.INCIDENT_API_URL || 'http://localhost:8002'

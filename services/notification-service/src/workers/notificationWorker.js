@@ -125,6 +125,10 @@ class NotificationWorker {
           result = await notificationService.sendIncidentResolvedNotification(data);
           break;
 
+        case 'acknowledgment_confirmation':
+          result = await notificationService.sendAcknowledgmentConfirmationNotification(data);
+          break;
+
         default:
           logger.warn(`Unknown notification type: ${type}`);
           await this._sendToDeadLetter(JSON.stringify(data), `unknown_type:${type}`);

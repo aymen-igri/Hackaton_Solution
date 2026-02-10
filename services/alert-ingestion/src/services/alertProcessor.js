@@ -1,4 +1,4 @@
-const { rawAlertsQueue, successQueue, retryQueue, errorQueue } = require('../queue/redisQueue');
+const { rawAlertsQueue, successQueue, retryQueue, errorQueue, redis, QUEUE_NAMES } = require('../queue/redisQueue');
 const { verifyAlert } = require('./verificationService');
 const { normalizeAlert, isValidNormalizedAlert } = require('./normalizationService');
 const config = require('../config');
@@ -68,12 +68,20 @@ function initializeProcessor() {
       processingStats.normalized++;
       console.log(`[AlertProcessor] Alert normalized successfully: ${normalizedAlert.id}`);
 
-      // Step 4: Send to success queue
-      await successQueue.add({
-        alert: normalizedAlert,
-        processedAt: new Date().toISOString(),
-        attempts: attemptCount + 1,
-      });
+      // Step 4: Push directly to successQueue for incident-management
+      // Format expected by incident-management alertConsumer:
+      const alertForIncident = {
+        alert_id: normalizedAlert.id,
+        title: normalizedAlert.labels?.alertname || normalizedAlert.message,
+        severity: normalizedAlert.severity,
+        source: normalizedAlert.service || normalizedAlert.source,
+        description: normalizedAlert.message,
+        firing_duration: 0, // Could calculate from startsAt if needed
+        timestamp: normalizedAlert.timestamp,
+      };
+      
+      await redis.lpush(QUEUE_NAMES.success, JSON.stringify(alertForIncident));
+      console.log(`[AlertProcessor] Alert pushed to ${QUEUE_NAMES.success} for incident-management`);
 
       return { success: true, alertId: normalizedAlert.id };
     } catch (normalizationError) {
@@ -122,19 +130,11 @@ function initializeProcessor() {
     return { retried: true };
   });
 
-  // Success queue processor (for forwarding to correlation service)
-  successQueue.process(async (job) => {
-    const { alert } = job.data;
-
-    console.log(`[AlertProcessor] Successfully processed alert: ${alert.id} - ${alert.service}`);
-
-    // Here you can forward to correlation service or database
-    // This is a placeholder for future integration
-
-    return { processed: true, alertId: alert.id };
-  });
+  // Note: successQueue is consumed by incident-management service via BRPOP
+  // No local processor needed here - alerts flow directly to incident-management
 
   console.log('[AlertProcessor] Alert processor initialized successfully');
+  console.log('[AlertProcessor] Success queue:', QUEUE_NAMES.success, '(consumed by incident-management)');
 }
 
 /**

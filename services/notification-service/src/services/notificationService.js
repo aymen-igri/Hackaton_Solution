@@ -11,9 +11,6 @@ class NotificationService {
     this.notificationHistory = [];
   }
 
-  /**
-   * Initialize all notification channels
-   */
   async initialize() {
     logger.info('Initializing notification services...');
     
@@ -25,10 +22,6 @@ class NotificationService {
     logger.info('All notification services initialized');
   }
 
-  /**
-   * Send notifications for incident assignment
-   * This is the main entry point called by the notification worker
-   */
   async sendIncidentAssignmentNotification(data) {
     const { incident, engineer, channels = ['email', 'sms'] } = data;
 
@@ -46,7 +39,6 @@ class NotificationService {
       channels: {}
     };
 
-    // Send email if requested
     if (channels.includes('email') && engineer.email) {
       try {
         results.channels.email = await emailService.sendIncidentAssignment({ incident, engineer });
@@ -62,8 +54,6 @@ class NotificationService {
         });
       }
     }
-
-    // Send SMS if requested
     if (channels.includes('sms') && engineer.phone) {
       try {
         results.channels.sms = await smsService.sendIncidentAssignment({ incident, engineer });
@@ -79,7 +69,6 @@ class NotificationService {
         });
       }
     }
-
     // Track notification
     this._trackNotification(results);
 
@@ -94,9 +83,7 @@ class NotificationService {
     return results;
   }
 
-  /**
-   * Send escalation notification (when incident not acknowledged in time)
-   */
+
   async sendEscalationNotification(data) {
     const { incident, originalEngineer, escalatedTo, reason } = data;
 
@@ -170,9 +157,9 @@ class NotificationService {
         if (stakeholder.email) {
           await emailService.send({
             to: stakeholder.email,
-            subject: `✅ Incident #${incident.id} Resolved: ${incident.title}`,
+            subject: ` Incident #${incident.id} Resolved: ${incident.title}`,
             text: `Incident #${incident.id} has been resolved by ${resolvedBy?.name || 'Unknown'}.\n\nTitle: ${incident.title}\nResolution: ${incident.resolution || 'Not specified'}`,
-            html: `<h2>✅ Incident Resolved</h2><p>Incident #${incident.id} has been resolved by ${resolvedBy?.name || 'Unknown'}.</p><p><strong>Title:</strong> ${incident.title}</p><p><strong>Resolution:</strong> ${incident.resolution || 'Not specified'}</p>`
+            html: `<h2> Incident Resolved</h2><p>Incident #${incident.id} has been resolved by ${resolvedBy?.name || 'Unknown'}.</p><p><strong>Title:</strong> ${incident.title}</p><p><strong>Resolution:</strong> ${incident.resolution || 'Not specified'}</p>`
           });
           results.notified.push({ id: stakeholder.id, channel: 'email', success: true });
         }
@@ -231,7 +218,6 @@ class NotificationService {
       }
     }
 
-    // Track notification
     this._trackNotification(results);
 
     const anySuccess = Object.values(results.channels).some(ch => ch.success);
@@ -240,9 +226,7 @@ class NotificationService {
     return results;
   }
 
-  /**
-   * Track notification in history
-   */
+
   _trackNotification(notification) {
     this.notificationHistory.unshift(notification);
     // Keep only last 1000 notifications in memory
@@ -251,16 +235,11 @@ class NotificationService {
     }
   }
 
-  /**
-   * Get notification history
-   */
+
   getHistory(limit = 50) {
     return this.notificationHistory.slice(0, limit);
   }
 
-  /**
-   * Get notification stats
-   */
   getStats() {
     const now = Date.now();
     const oneHourAgo = now - 60 * 60 * 1000;

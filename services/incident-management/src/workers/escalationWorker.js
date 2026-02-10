@@ -6,18 +6,7 @@ const redis = require('../redis');
 
 const pool = new Pool({ connectionString: config.databaseUrl });
 
-/**
- * Escalation Worker
- * 
- * Checks for incidents that haven't been acknowledged within the timeout period
- * and escalates them to the secondary on-call engineer.
- * 
- * Uses Redis sorted set (escalation:pending) with score = escalation timestamp
- */
 
-/**
- * Process a single escalation - reassign to secondary and notify
- */
 async function processEscalation(escalationData) {
   const { incident_id, primary_email, secondary_email } = escalationData;
 
@@ -29,20 +18,19 @@ async function processEscalation(escalationData) {
     );
 
     if (!rows.length) {
-      console.log(`[escalationWorker] ⚠️ Incident ${incident_id} not found, skipping`);
+      console.log(`[escalationWorker]  Incident ${incident_id} not found, skipping`);
       return;
     }
 
     const incident = rows[0];
 
-    // Only escalate if still 'open' (not yet acknowledged)
     if (incident.status !== 'open') {
-      console.log(`[escalationWorker] ✓ Incident ${incident_id} already ${incident.status}, no escalation needed`);
+      console.log(`[escalationWorker]  Incident ${incident_id} already ${incident.status}, no escalation needed`);
       return;
     }
 
     if (!secondary_email) {
-      console.warn(`[escalationWorker] ⚠️ No secondary engineer for incident ${incident_id}, cannot escalate`);
+      console.warn(`[escalationWorker]  No secondary engineer for incident ${incident_id}, cannot escalate`);
       return;
     }
 
@@ -54,7 +42,7 @@ async function processEscalation(escalationData) {
       );
       secondaryEngineer = data;
     } catch (err) {
-      console.warn(`[escalationWorker] ⚠️ Could not fetch engineer details for ${secondary_email}`);
+      console.warn(`[escalationWorker] Could not fetch engineer details for ${secondary_email}`);
       secondaryEngineer = { email: secondary_email, name: secondary_email.split('@')[0], phone: null };
     }
 
@@ -79,7 +67,7 @@ async function processEscalation(escalationData) {
       [secondary_email, now, incident_id],
     );
 
-    console.log(`[escalationWorker] 🔺 ESCALATED: Incident ${incident_id} reassigned from ${primary_email} to ${secondary_email}`);
+    console.log(`[escalationWorker]  ESCALATED: Incident ${incident_id} reassigned from ${primary_email} to ${secondary_email}`);
 
     // 5. Send escalation notification to secondary engineer
     const notificationPayload = {
@@ -88,7 +76,7 @@ async function processEscalation(escalationData) {
         id: incident.id,
         title: `[ESCALATED] ${incident.title}`,
         severity: incident.severity,
-        description: `⚠️ ESCALATED: Primary engineer (${primaryEngineer.name}) did not acknowledge within ${config.escalation.timeoutMinutes} minutes.\n\n${incident.description || ''}`,
+        description: ` ESCALATED: Primary engineer (${primaryEngineer.name}) did not acknowledge within ${config.escalation.timeoutMinutes} minutes.\n\n${incident.description || ''}`,
         source: incident.source,
         status: incident.status,
         ack_token: incident.ack_token,
@@ -105,18 +93,15 @@ async function processEscalation(escalationData) {
     };
 
     await redis.lpush(config.queues.notifications, JSON.stringify(notificationPayload));
-    console.log(`[escalationWorker] 📧 Escalation notification queued for ${secondary_email}`);
+    console.log(`[escalationWorker]  Escalation notification queued for ${secondary_email}`);
 
   } catch (err) {
-    console.error(`[escalationWorker] ❌ Failed to escalate incident ${incident_id}:`, err.message);
+    console.error(`[escalationWorker]  Failed to escalate incident ${incident_id}:`, err.message);
   }
 }
 
-/**
- * Main loop - checks Redis sorted set for due escalations
- */
 async function startEscalationWorker() {
-  console.log(`[escalationWorker] 🟢 Started - checking every ${config.escalation.checkIntervalMs / 1000}s for unacknowledged incidents`);
+  console.log(`[escalationWorker] Started - checking every ${config.escalation.checkIntervalMs / 1000}s for unacknowledged incidents`);
 
   while (true) {
     try {
@@ -136,14 +121,13 @@ async function startEscalationWorker() {
       }
 
       if (dueEscalations.length > 0) {
-        console.log(`[escalationWorker] 📊 Processed ${dueEscalations.length} escalation(s)`);
+        console.log(`[escalationWorker] Processed ${dueEscalations.length} escalation(s)`);
       }
 
     } catch (err) {
-      console.error('[escalationWorker] ❌ Error:', err.message);
+      console.error('[escalationWorker]  Error:', err.message);
     }
 
-    // Wait before checking again
     await new Promise((r) => setTimeout(r, config.escalation.checkIntervalMs));
   }
 }

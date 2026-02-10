@@ -29,10 +29,13 @@ class EmailService {
       host: config.email.host,
       port: config.email.port,
       secure: config.email.secure,
-      auth: {
-        user: config.email.auth.user,
-        pass: config.email.auth.pass
-      }
+      // Only use auth if credentials provided (MailHog doesn't need auth)
+      ...(config.email.auth.user && config.email.auth.pass && {
+        auth: {
+          user: config.email.auth.user,
+          pass: config.email.auth.pass
+        }
+      })
     });
 
     // Verify connection
@@ -116,97 +119,36 @@ class EmailService {
    * Build HTML email content for incident assignment
    */
   _buildIncidentEmailHtml(incident, engineer) {
-    const severityColor = {
-      critical: '#dc3545',
-      high: '#fd7e14',
-      warning: '#ffc107',
-      low: '#28a745',
-      info: '#17a2b8'
-    }[incident.severity] || '#6c757d';
-
     const incidentUrl = `${config.dashboardUrl}/incidents/${incident.id}`;
+    const ackUrl = incident.ack_token ? `${config.dashboardUrl}/acknowledge/${incident.ack_token}` : null;
 
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: ${severityColor}; color: white; padding: 15px; border-radius: 5px 5px 0 0; }
-    .content { background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; }
-    .field { margin-bottom: 15px; }
-    .label { font-weight: bold; color: #495057; }
-    .value { margin-top: 5px; }
-    .severity-badge { 
-      display: inline-block; 
-      padding: 4px 12px; 
-      border-radius: 4px; 
-      background: ${severityColor}; 
-      color: white; 
-      font-weight: bold;
-      text-transform: uppercase;
-    }
-    .button {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #007bff;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-      margin-top: 15px;
-      margin-right: 10px;
-    }
-    .button-ack {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #28a745;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    .footer { padding: 15px; font-size: 12px; color: #6c757d; text-align: center; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 40px auto; padding: 40px; background: #ffffff; text-align: center; }
+    h1 { color: #000000; font-size: 24px; margin-bottom: 30px; }
+    p { color: #000000; font-size: 16px; margin: 10px 0; }
+    .info { text-align: left; margin: 30px 0; padding: 20px; background: #fafafa; }
+    .info p { margin: 8px 0; }
+    .label { font-weight: bold; }
+    a.button { display: inline-block; padding: 15px 30px; margin: 10px; background: #000000; color: #ffffff; text-decoration: none; font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h2 style="margin: 0;">🚨 Incident Assigned to You</h2>
+    <h1>Incident Assigned to You</h1>
+    <div class="info">
+      <p><span class="label">ID:</span> ${incident.id}</p>
+      <p><span class="label">Title:</span> ${incident.title}</p>
+      <p><span class="label">Severity:</span> ${incident.severity.toUpperCase()}</p>
+      <p><span class="label">Description:</span> ${incident.description || 'No description'}</p>
+      <p><span class="label">Assigned To:</span> ${engineer.name} (${engineer.email})</p>
     </div>
-    <div class="content">
-      <div class="field">
-        <div class="label">Incident ID</div>
-        <div class="value">#${incident.id}</div>
-      </div>
-      <div class="field">
-        <div class="label">Title</div>
-        <div class="value">${incident.title}</div>
-      </div>
-      <div class="field">
-        <div class="label">Severity</div>
-        <div class="value"><span class="severity-badge">${incident.severity}</span></div>
-      </div>
-      <div class="field">
-        <div class="label">Description</div>
-        <div class="value">${incident.description || 'No description provided'}</div>
-      </div>
-      <div class="field">
-        <div class="label">Created At</div>
-        <div class="value">${new Date(incident.created_at).toLocaleString()}</div>
-      </div>
-      <div class="field">
-        <div class="label">Assigned To</div>
-        <div class="value">${engineer.name} (${engineer.email})</div>
-      </div>
-      ${incident.ack_token ? `<a href="${config.dashboardUrl}/acknowledge/${incident.ack_token}" class="button-ack">✅ ACKNOWLEDGE NOW</a>` : ''}
-      <a href="${incidentUrl}" class="button">View Details</a>
-    </div>
-    <div class="footer">
-      <p>This is an automated notification from the Incident Management Platform.</p>
-      <p>Click "ACKNOWLEDGE NOW" to confirm you've received this incident.</p>
-    </div>
+    ${ackUrl ? `<a href="${ackUrl}" class="button">ACKNOWLEDGE</a>` : ''}
+    <a href="${incidentUrl}" class="button">VIEW DETAILS</a>
   </div>
 </body>
 </html>`;
@@ -217,11 +159,11 @@ class EmailService {
    */
   _buildIncidentEmailText(incident, engineer) {
     const ackLink = incident.ack_token 
-      ? `\n✅ ACKNOWLEDGE NOW: ${config.dashboardUrl}/acknowledge/${incident.ack_token}\n`
+      ? `\nACKNOWLEDGE NOW: ${config.dashboardUrl}/acknowledge/${incident.ack_token}\n`
       : '';
 
     return `
-🚨 INCIDENT ASSIGNED TO YOU
+ INCIDENT ASSIGNED TO YOU
 
 Incident ID: #${incident.id}
 Title: ${incident.title}
@@ -244,7 +186,7 @@ Click the ACKNOWLEDGE link to confirm you've received this incident.
   async sendAcknowledgmentConfirmation(notification) {
     const { incident, engineer, resolveUrl } = notification;
 
-    const subject = `✅ Incident #${incident.id} Acknowledged - Resolve Link Inside`;
+    const subject = `Incident #${incident.id} Acknowledged - Resolve Link`;
     
     const html = this._buildAcknowledgmentConfirmationHtml(incident, engineer, resolveUrl);
     const text = this._buildAcknowledgmentConfirmationText(incident, engineer, resolveUrl);
@@ -261,14 +203,6 @@ Click the ACKNOWLEDGE link to confirm you've received this incident.
    * Build HTML email for acknowledgment confirmation
    */
   _buildAcknowledgmentConfirmationHtml(incident, engineer, resolveUrl) {
-    const severityColor = {
-      critical: '#dc3545',
-      high: '#fd7e14',
-      warning: '#ffc107',
-      low: '#28a745',
-      info: '#17a2b8'
-    }[incident.severity] || '#6c757d';
-
     const incidentUrl = `${config.dashboardUrl}/incidents/${incident.id}`;
 
     return `
@@ -276,89 +210,30 @@ Click the ACKNOWLEDGE link to confirm you've received this incident.
 <html>
 <head>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #28a745; color: white; padding: 15px; border-radius: 5px 5px 0 0; }
-    .content { background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; }
-    .field { margin-bottom: 15px; }
-    .label { font-weight: bold; color: #495057; }
-    .value { margin-top: 5px; }
-    .severity-badge { 
-      display: inline-block; 
-      padding: 4px 12px; 
-      border-radius: 4px; 
-      background: ${severityColor}; 
-      color: white; 
-      font-weight: bold;
-      text-transform: uppercase;
-    }
-    .button {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #007bff;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-      margin-top: 15px;
-      margin-right: 10px;
-    }
-    .button-resolve {
-      display: inline-block;
-      padding: 14px 28px;
-      background: #17a2b8;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-      margin-top: 15px;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    .footer { padding: 15px; font-size: 12px; color: #6c757d; text-align: center; }
-    .success-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 40px auto; padding: 40px; background: #ffffff; text-align: center; }
+    h1 { color: #000000; font-size: 24px; margin-bottom: 30px; }
+    p { color: #000000; font-size: 16px; margin: 10px 0; }
+    .info { text-align: left; margin: 30px 0; padding: 20px; background: #fafafa; }
+    .info p { margin: 8px 0; }
+    .label { font-weight: bold; }
+    a.button { display: inline-block; padding: 15px 30px; margin: 10px; background: #000000; color: #ffffff; text-decoration: none; font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h2 style="margin: 0;">✅ Incident Acknowledged</h2>
+    <h1>Incident Acknowledged</h1>
+    <p>Thank you. You have acknowledged this incident.</p>
+    <div class="info">
+      <p><span class="label">ID:</span> ${incident.id}</p>
+      <p><span class="label">Title:</span> ${incident.title}</p>
+      <p><span class="label">Severity:</span> ${incident.severity.toUpperCase()}</p>
+      <p><span class="label">Status:</span> ACKNOWLEDGED - awaiting resolution</p>
+      <p><span class="label">Acknowledged By:</span> ${engineer.name} (${engineer.email})</p>
     </div>
-    <div class="content">
-      <div class="success-box">
-        <strong>Thank you!</strong> You have successfully acknowledged this incident.
-      </div>
-      <div class="field">
-        <div class="label">Incident ID</div>
-        <div class="value">#${incident.id}</div>
-      </div>
-      <div class="field">
-        <div class="label">Title</div>
-        <div class="value">${incident.title}</div>
-      </div>
-      <div class="field">
-        <div class="label">Severity</div>
-        <div class="value"><span class="severity-badge">${incident.severity}</span></div>
-      </div>
-      <div class="field">
-        <div class="label">Status</div>
-        <div class="value"><strong>ACKNOWLEDGED</strong> - awaiting resolution</div>
-      </div>
-      <div class="field">
-        <div class="label">Acknowledged By</div>
-        <div class="value">${engineer.name} (${engineer.email})</div>
-      </div>
-      <div class="field">
-        <div class="label">Acknowledged At</div>
-        <div class="value">${new Date().toLocaleString()}</div>
-      </div>
-      <hr style="margin: 20px 0; border: none; border-top: 1px solid #dee2e6;">
-      <p><strong>Next step:</strong> Once you've fixed the issue, click the button below to mark it as resolved.</p>
-      <a href="${resolveUrl}" class="button-resolve">🔧 RESOLVE INCIDENT</a>
-      <a href="${incidentUrl}" class="button">View Details</a>
-    </div>
-    <div class="footer">
-      <p>This is an automated notification from the Incident Management Platform.</p>
-      <p>Click "RESOLVE INCIDENT" when the issue has been fixed.</p>
-    </div>
+    <p>Once fixed, click below to resolve:</p>
+    <a href="${resolveUrl}" class="button">RESOLVE INCIDENT</a>
+    <a href="${incidentUrl}" class="button">VIEW DETAILS</a>
   </div>
 </body>
 </html>`;
@@ -369,7 +244,7 @@ Click the ACKNOWLEDGE link to confirm you've received this incident.
    */
   _buildAcknowledgmentConfirmationText(incident, engineer, resolveUrl) {
     return `
-✅ INCIDENT ACKNOWLEDGED
+ INCIDENT ACKNOWLEDGED
 
 Thank you! You have successfully acknowledged this incident.
 

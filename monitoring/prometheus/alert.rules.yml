@@ -9,7 +9,7 @@ groups:
         annotations:
           summary: "Service {{ $labels.job }} is down"
           description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
-      
+
       - alert: HighApiErrorRate
         expr: (sum(rate(http_server_requests_seconds_count{status=~"^5.*"}[5m])) by (job)) / (sum(rate(http_server_requests_seconds_count[5m])) by (job)) > 0.05
         for: 1m
@@ -102,3 +102,61 @@ groups:
         annotations:
           summary: "High escalation rate"
           description: "More than 3 escalations have occurred in the last 5 minutes across all teams."
+
+  # ─── Mock Metrics Alert Rules ─────────────────────────────────────────────
+  # These rules watch the mock-metrics service for simulated alerts
+  - name: mock-alerts
+    rules:
+      - alert: MockHighMemoryUsage
+        expr: mock_high_memory_usage_bytes > 85
+        for: 30s
+        labels:
+          severity: "high"
+        annotations:
+          summary: "High memory usage detected on {{ $labels.instance }}"
+          description: "Memory usage is at {{ $value }}% on {{ $labels.service }}"
+
+      - alert: MockHighCPUUsage
+        expr: mock_high_cpu_usage_percent > 80
+        for: 30s
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "High CPU usage detected on {{ $labels.instance }}"
+          description: "CPU usage is at {{ $value }}% on {{ $labels.service }}"
+
+      - alert: MockServiceDown
+        expr: mock_service_up == 0
+        for: 15s
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "Service {{ $labels.service }} is down"
+          description: "The service {{ $labels.service }} is not responding"
+
+      - alert: MockDiskSpaceLow
+        expr: mock_disk_usage_percent > 90
+        for: 30s
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "Disk space low on {{ $labels.device }}"
+          description: "Disk {{ $labels.device }} is at {{ $value }}% capacity"
+
+      - alert: MockDatabaseConnectionFailed
+        expr: mock_db_connection_failed == 1
+        for: 15s
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "Database connection failed for {{ $labels.db_name }}"
+          description: "Cannot connect to database {{ $labels.db_name }}"
+
+      - alert: MockPodCrashLoop
+        expr: mock_pod_crash_loop == 1
+        for: 15s
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "Pod {{ $labels.pod_name }} is crash looping"
+          description: "Pod {{ $labels.pod_name }} in namespace {{ $labels.namespace }} is in a crash loop"

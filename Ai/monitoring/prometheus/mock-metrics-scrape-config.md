@@ -8,7 +8,7 @@ To allow Prometheus (running inside Docker) to access the locally running Mock M
 
 ```yaml
   - job_name: 'mock-metrics'
-    metrics_path: /metrics
+    metrics_path: /metrics 
     static_configs:
       - targets: ['host.docker.internal:8081']
 ```

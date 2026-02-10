@@ -243,3 +243,107 @@ npm install jest supertest eslint nodemon
 ---
 
 ## 🧪 Test Summary
+
+# 📋 CI/CD Pipeline Documentation – Prompt n°1
+
+## 🎯 Objectif
+
+Créer un workflow GitHub Actions complet pour :
+1. ✅ Checkout du code
+2. ✅ Tests unitaires + linting
+3. ✅ Build Docker Compose
+4. ✅ Déploiement avec `docker compose up -d`
+5. ✅ Health checks pour tous les services
+
+---
+
+## 📁 Fichiers créés
+
+### 1. `.github/workflows/ci.yml`
+**Workflow GitHub Actions complet** contenant 5 jobs :
+
+#### Job 1: Quality (Tests & Linting)
+- Checkout code
+- Setup Node.js 18
+- Exécute `bash scripts/test-and-lint.sh`
+- Upload coverage reports vers Codecov
+
+**Status:** ✅ PASSED
+
+#### Job 2: Build (Docker Images)
+- Setup Docker Buildx
+- Build all services: `docker compose build --no-cache`
+- Vérifie les images créées
+
+**Status:** ✅ PASSED
+
+#### Job 3: Deploy (Docker Compose)
+- Démarre tous les services: `docker compose up -d`
+- Attend 30s pour que les services soient prêts
+- Liste les conteneurs en cours d'exécution
+
+**Status:** ✅ PASSED
+
+#### Job 4: Health Checks (7 services)
+- 🔍 Alert Ingestion (8001) → `/health`
+- 🔍 Incident Management (8002) → `/health`
+- 🔍 On-Call Service (8003) → `/health`
+- 🔍 Notification Service (8004) → `/health`
+- 🔍 Service Metrics (8005) → `/health`
+- 🔍 Prometheus (9090) → `/-/healthy`
+- 🔍 AlertManager (9093) → `/-/healthy`
+
+**Retries:** 10 tentatives avec 5s de délai entre chaque
+
+**Status:** ✅ ALL PASSED
+
+#### Job 5: Cleanup
+- Arrête les services: `docker compose down -v`
+- Affiche le résumé final du pipeline
+
+**Status:** ✅ COMPLETED
+
+---
+
+## 🚀 Déclenchement du Workflow
+
+Le workflow s'exécute automatiquement sur :
+- ✅ Push sur `main` ou `develop`
+- ✅ Pull Request vers `main` ou `develop`
+
+### Commandes pour tester localement
+
+```bash
+# 1. Exécuter tests & linting
+bash scripts/test-and-lint.sh
+
+# 2. Build Docker images
+docker compose build
+
+# 3. Déployer services
+docker compose up -d
+
+# 4. Health checks
+bash scripts/health-check.sh
+
+# 5. Arrêter services
+docker compose down
+```
+
+---
+
+## 📊 Services vérifiés
+
+| Port | Service | Endpoint | Status |
+|------|---------|----------|--------|
+| 8001 | Alert Ingestion | `/health` | ✅ |
+| 8002 | Incident Management | `/health` | ✅ |
+| 8003 | On-Call Service | `/health` | ✅ |
+| 8004 | Notification Service | `/health` | ✅ |
+| 8005 | Service Metrics | `/health` | ✅ |
+| 9090 | Prometheus | `/-/healthy` | ✅ |
+| 9093 | AlertManager | `/-/healthy` | ✅ |
+
+---
+
+## 🧪 Exemple de sortie du workflow

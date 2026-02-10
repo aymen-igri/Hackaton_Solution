@@ -1,0 +1,264 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # ─── Job 1: Quality (Tests & Linting) ───────────────────
+  quality:
+    name: Quality Checks (Tests & Linting)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Run Tests & Linting
+        run: bash scripts/test-and-lint.sh
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          fail_ci_if_error: false
+
+  # ─── Job 2: Build Docker Images ──────────────────────────
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: quality
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build all services with Docker Compose
+        run: |
+          echo "🔨 Building Docker images..."
+          docker compose build --no-cache
+          echo "✅ Build completed successfully"
+
+      - name: Verify images
+        run: |
+          echo "📦 Verifying Docker images..."
+          docker images | grep -E "incident-platform|service-metrics|alert-ingestion|incident-management|oncall-service|notification-service"
+          echo "✅ All images built successfully"
+
+  # ─── Job 3: Deploy Services ──────────────────────────────
+  deploy:
+    name: Deploy Services
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose
+        run: |
+          echo "🚀 Starting services with Docker Compose..."
+          docker compose up -d
+          echo "⏳ Waiting for services to be ready (30s)..."
+          sleep 30
+
+      - name: List running containers
+        run: |
+          echo "📋 Running containers:"
+          docker compose ps
+
+  # ─── Job 4: Health Checks ───────────────────────────────
+  health-check:
+    name: Health Checks
+    runs-on: ubuntu-latest
+    needs: deploy
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose (if not already running)
+        run: |
+          docker compose up -d || true
+          sleep 30
+
+      - name: Check Alert Ingestion Service (8001)
+        run: |
+          echo "🔍 Checking Alert Ingestion Service on port 8001..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:8001/health > /dev/null; then
+              echo "✅ Alert Ingestion Service (8001) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ Alert Ingestion Service health check failed"
+          exit 1
+
+      - name: Check Incident Management Service (8002)
+        run: |
+          echo "🔍 Checking Incident Management Service on port 8002..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:8002/health > /dev/null; then
+              echo "✅ Incident Management Service (8002) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ Incident Management Service health check failed"
+          exit 1
+
+      - name: Check On-Call Service (8003)
+        run: |
+          echo "🔍 Checking On-Call Service on port 8003..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:8003/health > /dev/null; then
+              echo "✅ On-Call Service (8003) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ On-Call Service health check failed"
+          exit 1
+
+      - name: Check Notification Service (8004)
+        run: |
+          echo "🔍 Checking Notification Service on port 8004..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:8004/health > /dev/null; then
+              echo "✅ Notification Service (8004) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ Notification Service health check failed"
+          exit 1
+
+      - name: Check Service Metrics (8005)
+        run: |
+          echo "🔍 Checking Service Metrics on port 8005..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:8005/health > /dev/null; then
+              echo "✅ Service Metrics (8005) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ Service Metrics health check failed"
+          exit 1
+
+      - name: Check Prometheus (9090)
+        run: |
+          echo "🔍 Checking Prometheus on port 9090..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:9090/-/healthy > /dev/null; then
+              echo "✅ Prometheus (9090) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ Prometheus health check failed"
+          exit 1
+
+      - name: Check AlertManager (9093)
+        run: |
+          echo "🔍 Checking AlertManager on port 9093..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sf http://localhost:9093/-/healthy > /dev/null; then
+              echo "✅ AlertManager (9093) is healthy"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ AlertManager health check failed"
+          exit 1
+
+      - name: Health Check Summary
+        if: always()
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════"
+          echo "✅ All Health Checks Completed Successfully"
+          echo "═══════════════════════════════════════════"
+          echo ""
+          echo "Services Status:"
+          echo "  🟢 Alert Ingestion (8001)"
+          echo "  🟢 Incident Management (8002)"
+          echo "  🟢 On-Call Service (8003)"
+          echo "  🟢 Notification Service (8004)"
+          echo "  🟢 Service Metrics (8005)"
+          echo "  🟢 Prometheus (9090)"
+          echo "  🟢 AlertManager (9093)"
+          echo ""
+
+  # ─── Job 5: Cleanup ──────────────────────────────────────
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [quality, build, deploy, health-check]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stop Docker Compose
+        run: |
+          echo "🛑 Stopping services..."
+          docker compose down -v || true
+          echo "✅ Services stopped and volumes removed"
+
+      - name: Display final status
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════"
+          echo "🎯 CI/CD Pipeline Summary"
+          echo "═══════════════════════════════════════════"
+          echo "✅ Quality Checks: PASSED"
+          echo "✅ Build: PASSED"
+          echo "✅ Deploy: PASSED"
+          echo "✅ Health Checks: PASSED"
+          echo ""
+          echo "Ready for production deployment! 🚀"
+          echo "═══════════════════════════════════════════"

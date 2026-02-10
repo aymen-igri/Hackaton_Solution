@@ -1,11 +1,19 @@
 const Redis = require('ioredis');
 const axios = require('axios');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const config = require('../config');
 const redis = require('../redis');
 
 const pool = new Pool({ connectionString: config.databaseUrl });
 
+/**
+ * Generate a secure random token for magic links
+ * Used to revoke primary's access and issue new token for secondary
+ */
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 async function processEscalation(escalationData) {
   const { incident_id, primary_email, secondary_email } = escalationData;
@@ -57,19 +65,23 @@ async function processEscalation(escalationData) {
       primaryEngineer = { email: primary_email, name: primary_email.split('@')[0] };
     }
 
-    // 4. Reassign incident to secondary engineer
+    // 4. Reassign incident to secondary engineer AND generate new ack_token
+    //    This invalidates the primary's magic link
     const now = new Date().toISOString();
+    const newAckToken = generateToken();
+    
     const { rows: updated } = await pool.query(
       `UPDATE incidents 
-       SET assigned_to = $1, updated_at = $2 
-       WHERE id = $3 
+       SET assigned_to = $1, updated_at = $2, ack_token = $3 
+       WHERE id = $4 
        RETURNING *`,
-      [secondary_email, now, incident_id],
+      [secondary_email, now, newAckToken, incident_id],
     );
 
     console.log(`[escalationWorker]  ESCALATED: Incident ${incident_id} reassigned from ${primary_email} to ${secondary_email}`);
+    console.log(`[escalationWorker]  New ack_token generated - primary's link is now INVALID`);
 
-    // 5. Send escalation notification to secondary engineer
+    // 5. Send escalation notification to secondary engineer with NEW token
     const notificationPayload = {
       type: 'escalation',
       incident: {
@@ -79,7 +91,7 @@ async function processEscalation(escalationData) {
         description: ` ESCALATED: Primary engineer (${primaryEngineer.name}) did not acknowledge within ${config.escalation.timeoutMinutes} minutes.\n\n${incident.description || ''}`,
         source: incident.source,
         status: incident.status,
-        ack_token: incident.ack_token,
+        ack_token: newAckToken,  // Use the NEW token, not the old one
         created_at: incident.created_at,
       },
       engineer: secondaryEngineer,

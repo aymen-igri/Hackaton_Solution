@@ -1,164 +1,94 @@
-import { useState } from "react";
+import { useState, useEffect } from 'react';
+import { HomePage } from '../pages/Home';
+import { IncidentsPage } from '../pages/Incidents';
+import { SchedulePage } from '../pages/Schedule';
 
-const TEAM = [
-  "John Smith", "Sarah Johnson", "Mike Chen", "Emma Wilson",
-  "Tom Anderson", "Lisa Brown", "David Lee", "Amy Zhang", "Chris Taylor",
-];
+// ─── Load Wix Madefor Display font ───────────────────────────────────────────
+const loadFont = () => {
+  if (document.getElementById('wix-font')) return;
+  const link = document.createElement('link');
+  link.id = 'wix-font';
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@400;500;600;700;800&display=swap';
+  document.head.appendChild(link);
+};
 
-export const IncidentDetails = ({ incident, onClose, onUpdate }) => {
-  const [form, setForm] = useState({
-    ...incident,
-    note: incident.note || ''
-  });
+// ─── Header Component (Persistent across pages) ───────────────────────────────
+const Header = ({ activeTab, setActiveTab }) => (
+  <header style={{
+    backgroundColor: '#000000',
+    padding: '0.85rem 1.5rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottom: '1px solid #3a3a3a',
+    position: 'sticky',
+    top: 0,
+    zIndex: 1000,
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="10" r="7" fill="#fff" />
+        <rect x="14" y="17" width="4" height="10" fill="#fff" />
+        <rect x="8" y="22" width="16" height="2" fill="#fff" />
+      </svg>
+      <span style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff', letterSpacing: '0.04em', fontFamily: '"Wix Madefor Display", sans-serif' }}>
+        Acacia
+      </span>
+    </div>
 
-  const confirmChanges = () => {
-    onUpdate(form);
-    onClose();
-  };
+    <nav style={{ display: 'flex', gap: '2rem' }}>
+      {['HOME', 'INCIDENTS', 'SCHEDULE'].map(tab => (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: activeTab === tab ? '#ffffff' : '#888888',
+            fontSize: '0.78rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            padding: '0.4rem 0',
+            borderBottom: activeTab === tab ? '2px solid #ffffff' : '2px solid transparent',
+            transition: 'all 0.15s',
+            fontFamily: '"Wix Madefor Display", sans-serif',
+            letterSpacing: '0.1em',
+          }}
+        >
+          {tab}
+        </button>
+      ))}
+    </nav>
+  </header>
+);
 
-  const f = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+// ─── Main App Component ───────────────────────────────────────────────────────
+export const IncidentDashboard = () => {
+  const [activeTab, setActiveTab] = useState('HOME');
 
-  const inputBase = {
-    boxSizing: "border-box",
-    background: "#0d0d0d",
-    border: "1px solid #3a3a3a",
-    borderRadius: 4,
-    color: "#f0f0f0",
-    fontSize: 13,
-    fontFamily: "inherit",
-    outline: "none",
-    padding: "7px 10px",
-    transition: "border-color .15s",
+  useEffect(() => { loadFont(); }, []);
+
+  const renderPage = () => {
+    switch (activeTab) {
+      case 'HOME':      return <HomePage onSeeMore={() => setActiveTab('INCIDENTS')} />;
+      case 'INCIDENTS': return <IncidentsPage />;
+      case 'SCHEDULE':  return <SchedulePage />;
+      default:          return <HomePage onSeeMore={() => setActiveTab('INCIDENTS')} />;
+    }
   };
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0,
-        background: "rgba(0,0,0,0.65)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        zIndex: 999,
-        backdropFilter: "blur(2px)",
-      }}
-    >
-      {/* Modal panel */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#1c1c1c",
-          border: "1px solid #3a3a3a",
-          borderRadius: 8,
-          width: "100%", maxWidth: 460,
-          margin: "0 16px",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.85)",
-        }}
-      >
-        {/* Modal header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "18px 22px", borderBottom: "1px solid #2a2a2a",
-        }}>
-          <span style={{ fontSize: 17, fontWeight: 400 }}>Incident details</span>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none", border: "1px solid #3a3a3a", borderRadius: 5,
-              color: "#888", width: 28, height: 28, cursor: "pointer",
-              fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all .15s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#666"; e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#3a3a3a"; e.currentTarget.style.color = "#888"; }}
-          >×</button>
-        </div>
-
-        {/* Modal body */}
-        <div style={{ padding: "22px 22px 26px" }}>
-
-          {/* Title */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-            <label style={{ fontSize: 13, color: "#ccc", minWidth: 80 }}>Title:</label>
-            <input
-              style={{ ...inputBase, flex: 1 }}
-              value={form.title}
-              onChange={f("title")}
-              onFocus={(e) => (e.target.style.borderColor = "#666")}
-              onBlur={(e) => (e.target.style.borderColor = "#3a3a3a")}
-            />
-          </div>
-
-          {/* Status */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <label style={{ fontSize: 13, color: "#ccc", minWidth: 80 }}>Status:</label>
-            <select
-              style={{ ...inputBase, width: 160, cursor: "pointer" }}
-              value={form.status}
-              onChange={f("status")}
-              onFocus={(e) => (e.target.style.borderColor = "#666")}
-              onBlur={(e) => (e.target.style.borderColor = "#3a3a3a")}
-            >
-              {["Open", "In Progress", "Pending", "Resolved", "Closed"].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Assigned to */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <label style={{ fontSize: 13, color: "#ccc", minWidth: 80 }}>Assigned to:</label>
-            <select
-              style={{ ...inputBase, width: 180, cursor: "pointer" }}
-              value={form.assignedTo}
-              onChange={f("assignedTo")}
-              onFocus={(e) => (e.target.style.borderColor = "#666")}
-              onBlur={(e) => (e.target.style.borderColor = "#3a3a3a")}
-            >
-              {TEAM.map((m) => <option key={m}>{m}</option>)}
-            </select>
-          </div>
-
-          {/* Note */}
-          <div style={{ marginBottom: 28 }}>
-            <label style={{ fontSize: 13, color: "#ccc", display: "block", marginBottom: 8 }}>Note:</label>
-            <textarea
-              rows={5}
-              style={{ ...inputBase, width: "100%", resize: "vertical", lineHeight: 1.55 }}
-              value={form.note}
-              onChange={f("note")}
-              placeholder="Add notes about this incident…"
-              onFocus={(e) => (e.target.style.borderColor = "#666")}
-              onBlur={(e) => (e.target.style.borderColor = "#3a3a3a")}
-            />
-          </div>
-
-          {/* Buttons */}
-          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-            <button
-              onClick={confirmChanges}
-              style={{
-                padding: "10px 28px", borderRadius: 6, cursor: "pointer",
-                background: "transparent", border: "1px solid #fff",
-                color: "#fff", fontSize: 13, fontWeight: 500, fontFamily: "inherit",
-                transition: "all .2s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#000"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
-            >Confirm changes</button>
-            <button
-              onClick={onClose}
-              style={{
-                padding: "10px 28px", borderRadius: 6, cursor: "pointer",
-                background: "transparent", border: "1px solid #444",
-                color: "#aaa", fontSize: 13, fontWeight: 500, fontFamily: "inherit",
-                transition: "all .2s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#777"; e.currentTarget.style.color = "#fff"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#444"; e.currentTarget.style.color = "#aaa"; }}
-            >Cancel</button>
-          </div>
-        </div>
-      </div>
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#1c1c1c',
+      color: '#ffffff',
+      fontFamily: '"Wix Madefor Display", sans-serif',
+    }}>
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      {renderPage()}
     </div>
   );
 };
+
+export default IncidentDashboard;

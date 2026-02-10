@@ -38,15 +38,31 @@ const pollDuration = new Histogram({
 // ─── Middleware ────────────────────────────────────────
 app.use(express.json());
 
+// ─── CORS Middleware (allow web-ui access) ─────────────
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // ─── Health Check ──────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // ─── Prometheus Metrics ────────────────────────────────
-app.get('/metrics', (req, res) => {
-  res.set('Content-Type', register.contentType);
-  res.end(register.metrics());
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    console.error('Error generating metrics:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── REST API: Incidents by Service ────────────────────

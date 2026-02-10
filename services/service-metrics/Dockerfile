@@ -2,19 +2,16 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --production
 
 FROM node:18-alpine
 
+RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
+
 WORKDIR /app
 
-# Non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-# Copy from builder
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --chown=nodejs:nodejs . .
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
 
 USER nodejs
 

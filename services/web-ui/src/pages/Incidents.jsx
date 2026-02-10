@@ -1,117 +1,93 @@
-// Incidents Page Component
-import React, { useState } from 'react';
-import { IncidentDetails } from '../components/IncidentDetails';
+// src/pages/Incidents.jsx
+import { useState, useEffect } from 'react';
+import { FONT, TEXT_PRIMARY, TEXT_MUTED, IncidentTable } from '../components/shared';
+import { getIncidentDetails, formatIncidentForUI } from '../services/metricsApi';
 
 export const IncidentsPage = () => {
-  const [incidents, setIncidents] = useState([
-    { id: 1, title: 'Database Connection Timeout', severity: 'Critical', assignedTo: 'John Smith', status: 'In Progress', created: '2024-02-10 09:15', note: '' },
-    { id: 2, title: 'API Response Slow', severity: 'High', assignedTo: 'Sarah Johnson', status: 'Open', created: '2024-02-10 08:30', note: '' },
-    { id: 3, title: 'Login Page Error', severity: 'Medium', assignedTo: 'Mike Chen', status: 'In Progress', created: '2024-02-10 07:45', note: '' },
-    { id: 4, title: 'Email Service Down', severity: 'Critical', assignedTo: 'Emma Wilson', status: 'Open', created: '2024-02-09 22:15', note: '' },
-    { id: 5, title: 'Cache Not Clearing', severity: 'Low', assignedTo: 'Tom Anderson', status: 'Pending', created: '2024-02-09 20:30', note: '' },
-    { id: 6, title: 'SSL Certificate Expiring', severity: 'High', assignedTo: 'Lisa Brown', status: 'Open', created: '2024-02-09 18:00', note: '' },
-    { id: 7, title: 'Payment Gateway Issue', severity: 'Critical', assignedTo: 'David Lee', status: 'In Progress', created: '2024-02-09 15:45', note: '' },
-    { id: 8, title: 'Mobile App Crash', severity: 'High', assignedTo: 'Amy Zhang', status: 'Open', created: '2024-02-09 14:20', note: '' },
-    { id: 9, title: 'Report Generation Failure', severity: 'Medium', assignedTo: 'Chris Taylor', status: 'Pending', created: '2024-02-09 11:30', note: '' },
-  ]);
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
-  const [selectedIncident, setSelectedIncident] = useState(null);
+  useEffect(() => {
+    async function fetchIncidents() {
+      try {
+        const res = await getIncidentDetails();
+        if (res.status === 'success') {
+          setIncidents(res.data.map(formatIncidentForUI));
+        }
+      } catch (err) {
+        console.error('Failed to fetch incidents:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchIncidents();
+  }, []);
 
-  const openIncidentDetails = (incident) => {
-    setSelectedIncident(incident);
-  };
+  const filteredIncidents = filter === 'all' 
+    ? incidents 
+    : incidents.filter(i => i.status.toLowerCase() === filter);
 
-  const closeIncidentDetails = () => {
-    setSelectedIncident(null);
-  };
-
-  const updateIncident = (updatedIncident) => {
-    setIncidents(prev => 
-      prev.map(incident => 
-        incident.id === updatedIncident.id ? updatedIncident : incident
-      )
-    );
-  };
+  const filterButtons = [
+    { key: 'all', label: 'All' },
+    { key: 'open', label: 'Open' },
+    { key: 'acknowledged', label: 'Acknowledged' },
+    { key: 'resolved', label: 'Resolved' }
+  ];
 
   return (
-    <main style={{ padding: '3rem 2rem' }}>
+    <div style={{ padding: '1.75rem 1.5rem', maxWidth: '680px', margin: '0 auto' }}>
       <h1 style={{
-        fontSize: '3rem',
-        fontWeight: '300',
-        marginBottom: '2rem',
-        letterSpacing: '-0.02em'
+        fontSize: '2rem',
+        fontWeight: '800',
+        color: TEXT_PRIMARY,
+        fontFamily: FONT,
+        marginBottom: '1rem',
+        letterSpacing: '-0.01em',
       }}>
-        ALL INCIDENTS
+        INCIDENTS
       </h1>
 
-      <div style={{
-        backgroundColor: '#000000',
-        border: '1px solid #333',
-        borderRadius: '8px',
-        overflow: 'hidden'
-      }}>
-        {/* Table Header */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1.5fr',
-          padding: '1rem 1.5rem',
-          borderBottom: '1px solid #333',
-          fontSize: '0.875rem',
-          fontWeight: '600',
-          color: '#888888'
-        }}>
-          <div>TITLE</div>
-          <div>SEVERITY</div>
-          <div>ASSIGNED TO</div>
-          <div>STATUS</div>
-          <div>CREATED</div>
-        </div>
-
-        {/* Table Rows */}
-        {incidents.map(incident => (
-          <div
-            key={incident.id}
+      {/* Filter Buttons */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {filterButtons.map(btn => (
+          <button
+            key={btn.key}
+            onClick={() => setFilter(btn.key)}
             style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1.5fr',
-              padding: '1.25rem 1.5rem',
-              borderBottom: '1px solid #222',
-              transition: 'background-color 0.2s',
-              cursor: 'pointer'
+              padding: '0.4rem 0.8rem',
+              fontSize: '0.72rem',
+              fontFamily: FONT,
+              backgroundColor: filter === btn.key ? '#ffffff' : 'transparent',
+              color: filter === btn.key ? '#1c1c1c' : TEXT_MUTED,
+              border: `1px solid ${filter === btn.key ? '#ffffff' : '#3a3a3a'}`,
+              borderRadius: '3px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
             }}
-            onClick={() => openIncidentDetails(incident)}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#111'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <div style={{ fontSize: '0.9rem' }}>{incident.title}</div>
-            <div style={{ fontSize: '0.9rem' }}>
-              <span style={{
-                padding: '0.25rem 0.75rem',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                backgroundColor: incident.severity === 'Critical' ? '#ff4444' : 
-                                incident.severity === 'High' ? '#ff8800' : 
-                                incident.severity === 'Medium' ? '#ffbb00' : '#44aa44',
-                color: '#ffffff'
-              }}>
-                {incident.severity}
-              </span>
-            </div>
-            <div style={{ fontSize: '0.9rem', color: '#cccccc' }}>{incident.assignedTo}</div>
-            <div style={{ fontSize: '0.9rem', color: '#cccccc' }}>{incident.status}</div>
-            <div style={{ fontSize: '0.9rem', color: '#888888' }}>{incident.created}</div>
-          </div>
+            {btn.label}
+          </button>
         ))}
       </div>
 
-      {/* Render the modal when an incident is selected */}
-      {selectedIncident && (
-        <IncidentDetails
-          incident={selectedIncident}
-          onClose={closeIncidentDetails}
-          onUpdate={updateIncident}
-        />
+      {loading ? (
+        <div style={{ color: TEXT_MUTED, textAlign: 'center', padding: '2rem' }}>
+          Loading incidents...
+        </div>
+      ) : (
+        <>
+          <div style={{ 
+            fontSize: '0.7rem', 
+            color: TEXT_MUTED, 
+            marginBottom: '0.5rem',
+            letterSpacing: '0.08em'
+          }}>
+            {filteredIncidents.length} INCIDENT{filteredIncidents.length !== 1 ? 'S' : ''}
+          </div>
+          <IncidentTable incidents={filteredIncidents} showSeeMore={false} />
+        </>
       )}
-    </main>
+    </div>
   );
 };

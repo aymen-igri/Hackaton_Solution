@@ -3,7 +3,8 @@ FROM node:18-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN rm -rf node_modules && npm install
+RUN ls -l node_modules
 
 COPY src/ ./src/
 

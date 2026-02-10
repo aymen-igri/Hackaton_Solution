@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     description     TEXT         DEFAULT '',
     status          VARCHAR(50)  NOT NULL DEFAULT 'open',   -- open, acknowledged, resolved, closed
     labels          JSONB        DEFAULT '{}',
+    assigned_to     VARCHAR(255),
+    ack_token       VARCHAR(64)  UNIQUE,                    -- Magic link token for acknowledgment
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     acknowledged_at TIMESTAMPTZ,
@@ -44,6 +46,24 @@ CREATE TABLE IF NOT EXISTS incident_alerts (
     PRIMARY KEY (alert_id, incident_id)
 );
 
+-- ─── Engineers (Users) ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS engineers (
+    id             UUID PRIMARY KEY,
+    email          VARCHAR(255) UNIQUE NOT NULL,
+    password_hash  VARCHAR(255) NOT NULL,
+    name           VARCHAR(255) NOT NULL,
+    phone          VARCHAR(50),
+    role           VARCHAR(50)  NOT NULL DEFAULT 'engineer',  -- admin, engineer, viewer
+    team_id        VARCHAR(255),
+    is_active      BOOLEAN      NOT NULL DEFAULT true,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_engineers_email   ON engineers (email);
+CREATE INDEX idx_engineers_team_id ON engineers (team_id);
+CREATE INDEX idx_engineers_role    ON engineers (role);
+
 -- ─── On-Call Schedules ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS oncall_schedules (
     id             UUID PRIMARY KEY,
@@ -56,6 +76,14 @@ CREATE TABLE IF NOT EXISTS oncall_schedules (
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- ─── Seed Engineers (password: "password123" for all) ───────
+-- bcrypt hash of "password123" with 10 rounds
+INSERT INTO engineers (id, email, password_hash, name, phone, role, team_id) VALUES
+    ('e0000000-0000-0000-0000-000000000001', 'alice@example.com', '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.A7gEm4d8lE8o3NGUmu', 'Alice Smith', '+1234567890', 'admin', 'platform'),
+    ('e0000000-0000-0000-0000-000000000002', 'bob@example.com', '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.A7gEm4d8lE8o3NGUmu', 'Bob Johnson', '+1234567891', 'engineer', 'platform'),
+    ('e0000000-0000-0000-0000-000000000003', 'carol@example.com', '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.A7gEm4d8lE8o3NGUmu', 'Carol Williams', '+1234567892', 'engineer', 'platform')
+ON CONFLICT (email) DO NOTHING;
+
 -- ─── Seed data (optional demo schedule) ─────────────────────
 INSERT INTO oncall_schedules (id, name, team_id, rotation_type, start_date, members)
 VALUES (
@@ -65,4 +93,4 @@ VALUES (
     'weekly',
     NOW(),
     '["alice@example.com", "bob@example.com", "carol@example.com"]'
-);
+) ON CONFLICT DO NOTHING;

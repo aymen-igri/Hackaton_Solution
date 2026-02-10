@@ -1,7 +1,7 @@
 {
   "name": "incident-management",
   "version": "1.0.0",
-  "description": "Incident lifecycle and SRE metrics (MTTA/MTTR)",
+  "description": "Incident lifecycle, SRE metrics (MTTA/MTTR), and Redis queue workers",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -9,15 +9,20 @@
     "test": "jest --coverage"
   },
   "dependencies": {
+    "axios": "^1.6.2",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
     "pg": "^8.11.3",
     "prom-client": "^15.1.0",
-    "cors": "^2.8.5",
-    "morgan": "^1.10.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "nodemon": "^3.0.2",
-    "jest": "^29.7.0"
+    "supertest": "^7.2.2"
   }
 }

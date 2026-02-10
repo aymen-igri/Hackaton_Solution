@@ -1,4 +1,6 @@
 
+node_modules/
+.env
 
 /GEMINI.md
 
@@ -6,3 +8,274 @@
 
 **/package-lock.json
 **/node_modules
+# ==========================================
+# Node.js Dependencies
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ==========================================
+# Package Manager Lock Files (optional)
+# ==========================================
+# Uncomment if you want to ignore lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ==========================================
+# Environment Variables
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ==========================================
+# Test Coverage
+# ==========================================
+coverage/
+*.lcov
+.nyc_output/
+.cache/
+
+# ==========================================
+# Build & Distribution
+# ==========================================
+dist/
+build/
+*.tsbuildinfo
+
+# ==========================================
+# Logs
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ==========================================
+# Docker & Container Data
+# ==========================================
+# Docker volumes data (persistent data)
+# These should NOT be committed as they contain runtime data
+.docker/
+docker-data/
+
+# ==========================================
+# Database Data
+# ==========================================
+# PostgreSQL data files
+*.db
+*.sqlite
+*.sqlite3
+pg_data/
+postgres_data/
+
+# ==========================================
+# Redis Data
+# ==========================================
+dump.rdb
+*.rdb
+redis_data/
+
+# ==========================================
+# Monitoring Data
+# ==========================================
+prometheus_data/
+alertmanager_data/
+grafana_data/
+
+# ==========================================
+# IDE & Editor Files
+# ==========================================
+# JetBrains IDEs (IntelliJ IDEA, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+out/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+.history/
+
+# Eclipse
+.project
+.classpath
+.settings/
+.metadata/
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ==========================================
+# OS Files
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# ==========================================
+# Temporary Files
+# ==========================================
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+
+# ==========================================
+# Jest & Testing
+# ==========================================
+coverage/
+.jest/
+__snapshots__/
+
+# ==========================================
+# TypeScript (if used)
+# ==========================================
+*.tsbuildinfo
+.tsbuildinfo
+
+# ==========================================
+# ESLint & Prettier
+# ==========================================
+.eslintcache
+.prettierignore
+
+# ==========================================
+# Optional NPM cache
+# ==========================================
+.npm/
+
+# ==========================================
+# Optional REPL history
+# ==========================================
+.node_repl_history
+
+# ==========================================
+# Next.js (if used)
+# ==========================================
+.next/
+out/
+
+# ==========================================
+# Webpack
+# ==========================================
+.webpack/
+
+# ==========================================
+# Parcel
+# ==========================================
+.parcel-cache/
+
+# ==========================================
+# Serverless
+# ==========================================
+.serverless/
+
+# ==========================================
+# FuseBox
+# ==========================================
+.fusebox/
+
+# ==========================================
+# DynamoDB Local
+# ==========================================
+.dynamodb/
+
+# ==========================================
+# Terraform (if used)
+# ==========================================
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# ==========================================
+# Kubernetes (if used)
+# ==========================================
+.kube/config
+
+# ==========================================
+# Certificates & Keys
+# ==========================================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ==========================================
+# Backup Files
+# ==========================================
+*.bak
+*.backup
+*.old
+*.orig
+
+# ==========================================
+# Project Specific
+# ==========================================
+# Test result files
+test-results/
+junit.xml
+
+# Documentation build output (if using documentation generators)
+docs/_build/
+docs/.doctrees/
+site/
+
+# ==========================================
+# Keep Empty Directories
+# ==========================================
+# Use .gitkeep files in empty directories you want to track
+!.gitkeep
+

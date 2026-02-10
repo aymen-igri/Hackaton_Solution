@@ -25,6 +25,40 @@ const correlatedAlerts = new client.Counter({
   registers: [register],
 });
 
+// New metrics for alert processing pipeline
+const alertsVerified = new client.Counter({
+  name: 'alerts_verified_total',
+  help: 'Total number of alerts that passed verification',
+  labelNames: ['status'],
+  registers: [register],
+});
+
+const alertsNormalized = new client.Counter({
+  name: 'alerts_normalized_total',
+  help: 'Total number of alerts successfully normalized',
+  registers: [register],
+});
+
+const alertsQueued = new client.Counter({
+  name: 'alerts_queued_total',
+  help: 'Total number of alerts queued',
+  labelNames: ['queue'],
+  registers: [register],
+});
+
+const alertsRetried = new client.Counter({
+  name: 'alerts_retried_total',
+  help: 'Total number of alerts that were retried',
+  registers: [register],
+});
+
+const alertsFailed = new client.Counter({
+  name: 'alerts_failed_total',
+  help: 'Total number of alerts that failed processing',
+  labelNames: ['stage'],
+  registers: [register],
+});
+
 // Middleware to track request duration
 const httpRequestDuration = new client.Histogram({
   name: 'http_request_duration_seconds',
@@ -51,6 +85,11 @@ module.exports = {
   alertsReceived,
   alertProcessingDuration,
   correlatedAlerts,
+  alertsVerified,
+  alertsNormalized,
+  alertsQueued,
+  alertsRetried,
+  alertsFailed,
   metricsMiddleware,
   metricsEndpoint,
 };

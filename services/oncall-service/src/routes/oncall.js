@@ -26,4 +26,30 @@ router.get('/next', async (req, res) => {
   }
 });
 
+// GET /api/oncall/rotation – Get primary and secondary on-call (for assignment & escalation)
+router.get('/rotation', async (req, res) => {
+  try {
+    const scheduleId = req.query.schedule_id;
+    const rotation = await rotationService.getPrimaryAndSecondary(scheduleId);
+    res.json(rotation);
+  } catch (err) {
+    console.error('[oncall] Error getting rotation:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/oncall/engineer/:email – Get engineer details by email
+router.get('/engineer/:email', async (req, res) => {
+  try {
+    const engineer = await rotationService.getEngineerByEmail(req.params.email);
+    if (!engineer) {
+      return res.status(404).json({ error: 'Engineer not found' });
+    }
+    res.json(engineer);
+  } catch (err) {
+    console.error('[oncall] Error getting engineer:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

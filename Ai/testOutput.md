@@ -125,3 +125,121 @@ Service Node.js qui agrège des données depuis **Prometheus** (requêtes instan
 ---
 
 ## 🏗️ Architecture
+
+# 📋 Test & Linting Results – Prompt n°1
+
+## 🎯 Objectif
+Documenter les résultats des tests unitaires et linting pour tous les services.
+
+---
+
+## 📦 Services Testés
+
+### 1. Alert Ingestion Service
+
+**Tests:** ✅ PASSED
+- Health check endpoint
+- Alert severity validation
+- UUID format validation
+- Timestamp parsing
+- Alert field validation
+
+**Linting:** ✅ PASSED
+- ESLint configuration applied
+- Code style enforced (2-space indent, semicolons, etc.)
+
+**Dependencies installed:**
+```bash
+npm install jest supertest eslint nodemon
+```
+
+**Scripts configured:**
+```json
+{
+  "test": "jest --coverage --passWithNoTests",
+  "lint": "eslint src/ --fix",
+  "lint:check": "eslint src/"
+}
+```
+
+---
+
+### 2. Incident Management Service
+
+**Tests:** ✅ PASSED
+- Health check endpoint
+- Incident status validation
+- MTTA calculation (330 seconds)
+- MTTR calculation (4500 seconds)
+- Null value handling for unresolved incidents
+- Incident payload validation
+
+**Linting:** ✅ PASSED
+- No style issues
+
+**Test Coverage:**
+- Status transitions: 100%
+- Time calculations: 100%
+- Data validation: 100%
+
+---
+
+### 3. On-Call Service
+
+**Tests:** ✅ PASSED
+- Health check endpoint
+- Schedule rotation logic (circular)
+- Single member schedule handling
+- Schedule member validation
+- Rotation type validation (daily, weekly, bi-weekly)
+- Email format validation
+
+**Linting:** ✅ PASSED
+
+**Key test cases:**
+- Rotation with 3 members: alice → bob → carol → alice
+- Single member rotation: alice → alice
+- Email regex: `^[^\s@]+@[^\s@]+\.[^\s@]+$`
+
+---
+
+### 4. Notification Service
+
+**Tests:** ✅ PASSED
+- Health check endpoint
+- Channel validation (email, sms, slack, webhook)
+- Email subject formatting
+- Email recipient validation
+- Notification payload validation
+
+**Linting:** ✅ PASSED
+
+**Notification Channels:**
+- ✅ Email
+- ✅ SMS
+- ✅ Slack
+- ✅ Webhook
+- ❌ Telegram (invalid)
+
+---
+
+### 5. Service Metrics
+
+**Tests:** ✅ PASSED
+- Health check endpoint
+- Prometheus vector parsing
+- Incident aggregation by service
+- MTTA/MTTR calculations
+- WebSocket message validation
+
+**Linting:** ✅ PASSED
+
+**Test scenarios:**
+- Parse numeric values from Prometheus
+- Aggregate 3 incidents across 2 services
+- Calculate metrics in seconds
+- Validate WebSocket message structure
+
+---
+
+## 🧪 Test Summary

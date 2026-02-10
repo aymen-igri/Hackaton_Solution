@@ -136,61 +136,134 @@ Chaque alerte doit fournir :
 
 
 
-
-
-# Prompt numéro 2 – Version améliorée
-
-## Objectif
-
-Créer un **service Grafana** capable de représenter visuellement les données provenant de Prometheus.
+Voici une **version améliorée, clarifiée et mieux structurée** de ton prompt, **Sidi oussama**, **sans changer le fond ni l’intention**, juste en le rendant plus précis, exploitable et “engineering-ready”.
 
 ---
 
-## Prompt
+# Prompt n°2 — Service Metrics
 
-Je veux que tu **configures et crées un service Grafana** :
+## 🎯 Objectif
 
-* Grafana doit être **conteneurisé** et intégré dans le même **Docker Compose** que Prometheus.
-* Grafana doit **se connecter à Prometheus** (qui est déjà présent dans le Docker Compose) comme **source de données principale**.
-* Grafana doit pouvoir interroger les API Prometheus suivantes pour visualiser et analyser les données :
+Créer un **service metrics** chargé de **collecter, agréger et exposer des données de monitoring** afin de les fournir au **UI (React)** via **API REST et WebSocket**.
 
-```
-## 1️⃣ /api/v1/query – valeur instantanée
-- Obtenir la valeur actuelle d’une métrique.
-Exemples de métriques : http_requests_total, memory_usage_bytes, cpu_usage_seconds_total, disk_io_bytes_total, request_duration_seconds, prometheus_tsdb_head_series, prometheus_engine_queries
+Ce service joue le rôle d’**intermédiaire entre Prometheus, PostgreSQL et le UI**.
 
-## 2️⃣ /api/v1/query_range – série temporelle
-- Obtenir l’évolution d’une métrique sur un intervalle de temps.
-Exemples : memory_usage_bytes, cpu_usage_seconds_total, http_requests_total, request_duration_seconds_bucket, disk_io_bytes_total
-
-## 3️⃣ /api/v1/alerts – alertes actives
-- Obtenir toutes les alertes déclenchées par les alert rules.
-Exemples : HighMemoryUsage, HighCPUUsage, ServiceDown, HighErrorRate, DiskFull, LatencyTooHigh
-
-## 4️⃣ /api/v1/series – séries collectées
-- Lister toutes les séries collectées par Prometheus.
-Exemples : http_requests_total par method et endpoint, memory_usage_bytes par instance, cpu_usage_seconds_total par job et instance, request_duration_seconds_bucket, séries internes Prometheus comme prometheus_tsdb_head_series
-
-## 5️⃣ /api/v1/labels – labels et valeurs
-- Lister tous les labels utilisés et leurs valeurs possibles.
-Labels : job, instance, method, endpoint, severity, alertname
-Exemples de valeurs :
-  - job → users_service, payment_service
-  - instance → users-1:8080, users-2:8080
-  - method → GET, POST
-  - endpoint → /api/users, /api/payments
-  - severity → warning, critical
-  - alertname → HighMemoryUsage, ServiceDown
-```
-Tester cela a l'aide du docker compose et met les resulat en Ai/TestOuptput.md
-Apres l'implmentation  documenter ce que vous a fait  en Ai/output.md
 ---
 
-## Contraintes
+## 🧩 Description générale du service
 
-* **Ne rien toucher** à la configuration ou au Docker Compose déjà existants pour Prometheus.
-* Grafana doit **s’intégrer sans modifier Prometheus**, uniquement comme service supplémentaire dans Docker Compose.
-* Toutes les requêtes et dashboards Grafana doivent utiliser Prometheus comme source de données.
-* ne toucher pas ce fichier prompt.md 
+Je veux créer un **service-metrics** qui :
+
+* se connecte à **Prometheus** via ses **API HTTP officielles**
+* interroge régulièrement Prometheus (polling)
+* expose :
+
+  * des **API REST** pour les données issues de PostgreSQL
+  * des **WebSockets** pour pousser les données de monitoring vers le UI
+* se connecte à une **base de données PostgreSQL** (lecture uniquement)
+
+---
+
+
+
+### 🔹 1. Données Prometheus (polling toutes les 10 secondes)
+
+#### A. Valeurs instantanées
+
+À récupérer via **`/api/v1/query`**
+
+* `prometheus_tsdb_head_series`
+  → nombre total de séries dans la TSDB
+* `prometheus_engine_queries`
+  → nombre de requêtes Prometheus en cours
+* `http_requests_total`
+  → nombre total de requêtes HTTP
+
+---
+
+#### B. Séries temporelles (historique)
+
+À récupérer via **`/api/v1/query_range`**
+
+* `memory_usage_bytes`
+  → évolution de la mémoire sur **1h ou 24h**
+* `cpu_usage_seconds_total`
+  → évolution de l’utilisation CPU par instance
+* `http_requests_total`
+  → évolution du nombre de requêtes HTTP sur une période donnée
+
+---
+
+### 🔹 2. Données PostgreSQL (incidents)
+
+À récupérer depuis la base PostgreSQL existante
+(le schéma est défini dans `/init-db/01-init-schema.sql`)
+
+* **Total des incidents ouverts par service**
+* **Détails des incidents**, incluant :
+
+  * statut
+  * service concerné
+  * **MTTA**
+  * **MTTR**
+
+---
+
+## 🔌 Exposition des données vers le UI
+
+### 🟣 WebSocket Sources de données & collecte
+
+Une connexion WebSocket entre **service-metrics** et le **UI**, avec **deux channels distincts** :
+
+1. **Channel valeurs instantanées**
+
+   * envoie les résultats JSON provenant de `/query`
+2. **Channel séries temporelles**
+
+   * envoie les résultats JSON provenant de `/query_range`
+
+👉 Les messages WebSocket doivent transmettre **le JSON brut retourné par Prometheus**, sans transformation métier.
+
+---
+
+### 🔵 API REST (données PostgreSQL)
+
+Endpoints REST à exposer :
+
+* `GET /api/metrics/incidents/by-service`
+  → retourne la liste des incidents groupés par service
+
+* `GET /api/metrics/incidents/details`
+  → retourne les incidents avec leurs métriques associées (MTTA, MTTR)
+
+---
+
+## ⚙️ Contraintes techniques
+
+* Le service doit :
+
+  * appartenir au **Docker network existant**
+  * être déclaré dans **`docker-compose.yml`**
+* Le service doit être implémenté en **Node.js**
+* Le service est **indépendant**
+
+  * ❌ ne pas modifier
+  * ❌ ne pas coupler
+  * ❌ ne pas impacter les autres services existants
+* le code doit etre simple  
+* generer le dockerfile de cette service 
+
+---
+
+## 🧠 Intention architecturale (implicite)
+
+* Prometheus reste la **source de vérité des métriques**
+* PostgreSQL reste la **source de vérité des incidents**
+* Le service-metrics :
+
+  * agrège
+  * expose
+  * diffuse
+* Le UI ne communique **qu’avec ce service**
 
 ---

@@ -78,13 +78,23 @@ jobs:
         run: |
           echo "🚀 Starting services with Docker Compose..."
           docker compose up -d
-          echo "⏳ Waiting for services to be ready (30s)..."
-          sleep 30
+          echo "⏳ Waiting for services to be ready (60s)..."
+          sleep 60
 
       - name: List running containers
         run: |
           echo "📋 Running containers:"
           docker compose ps
+
+      - name: Check container status
+        run: |
+          echo "🔍 Checking Docker container logs..."
+          docker compose logs --tail=50
+
+      - name: Verify database connection
+        run: |
+          echo "🔍 Verifying database connection..."
+          docker compose exec -T postgres pg_isready -U postgres || echo "Database not ready yet"
 
   # ─── Job 4: Health Checks ───────────────────────────────
   health-check:
@@ -99,125 +109,155 @@ jobs:
       - name: Start Docker Compose (if not already running)
         run: |
           docker compose up -d || true
-          sleep 30
+          echo "⏳ Waiting for services to stabilize (60s)..."
+          sleep 60
+
+      - name: Display service status
+        run: |
+          echo "📋 Current Docker status:"
+          docker compose ps
+          echo ""
+          echo "📋 Recent logs:"
+          docker compose logs --tail=30
 
       - name: Check Alert Ingestion Service (8001)
         run: |
           echo "🔍 Checking Alert Ingestion Service on port 8001..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:8001/health > /dev/null; then
+            if curl -sf http://localhost:8001/health > /dev/null 2>&1; then
               echo "✅ Alert Ingestion Service (8001) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ Alert Ingestion Service health check failed"
+          docker logs alert-ingestion || echo "No logs available"
           exit 1
 
       - name: Check Incident Management Service (8002)
         run: |
           echo "🔍 Checking Incident Management Service on port 8002..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:8002/health > /dev/null; then
+            if curl -sf http://localhost:8002/health > /dev/null 2>&1; then
               echo "✅ Incident Management Service (8002) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ Incident Management Service health check failed"
+          docker logs incident-management || echo "No logs available"
           exit 1
 
       - name: Check On-Call Service (8003)
         run: |
           echo "🔍 Checking On-Call Service on port 8003..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:8003/health > /dev/null; then
+            if curl -sf http://localhost:8003/health > /dev/null 2>&1; then
               echo "✅ On-Call Service (8003) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ On-Call Service health check failed"
+          docker logs oncall-service || echo "No logs available"
           exit 1
 
       - name: Check Notification Service (8004)
         run: |
           echo "🔍 Checking Notification Service on port 8004..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:8004/health > /dev/null; then
+            if curl -sf http://localhost:8004/health > /dev/null 2>&1; then
               echo "✅ Notification Service (8004) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ Notification Service health check failed"
+          docker logs notification-service || echo "No logs available"
           exit 1
 
       - name: Check Service Metrics (8005)
         run: |
           echo "🔍 Checking Service Metrics on port 8005..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:8005/health > /dev/null; then
+            if curl -sf http://localhost:8005/health > /dev/null 2>&1; then
               echo "✅ Service Metrics (8005) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ Service Metrics health check failed"
+          docker logs service-metrics || echo "No logs available"
           exit 1
 
       - name: Check Prometheus (9090)
         run: |
           echo "🔍 Checking Prometheus on port 9090..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:9090/-/healthy > /dev/null; then
+            if curl -sf http://localhost:9090/-/healthy > /dev/null 2>&1; then
               echo "✅ Prometheus (9090) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ Prometheus health check failed"
+          docker logs prometheus || echo "No logs available"
           exit 1
 
       - name: Check AlertManager (9093)
         run: |
           echo "🔍 Checking AlertManager on port 9093..."
-          MAX_RETRIES=10
+          MAX_RETRIES=15
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -sf http://localhost:9093/-/healthy > /dev/null; then
+            if curl -sf http://localhost:9093/-/healthy > /dev/null 2>&1; then
               echo "✅ AlertManager (9093) is healthy"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
-            sleep 5
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - retrying in 5s..."
+              sleep 5
+            fi
           done
           echo "❌ AlertManager health check failed"
+          docker logs alertmanager || echo "No logs available"
           exit 1
 
       - name: Health Check Summary

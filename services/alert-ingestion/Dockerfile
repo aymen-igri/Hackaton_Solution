@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN rm -rf node_modules && npm install
 RUN ls -l node_modules
+RUN ls -l node_modules/uuid
 
 COPY src/ ./src/
 

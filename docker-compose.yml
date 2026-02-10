@@ -129,21 +129,25 @@ services:
       # Incident API URL for acknowledge links
       INCIDENT_API_URL: ${INCIDENT_API_URL:-http://localhost:8002}
 
-  # ─── Web UI (React) ─────────────────────────────────────
-  # web-ui:
-  #   build: ./services/web-ui
-  #   container_name: web-ui
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - alert-ingestion
-  #     - incident-management
-  #     - oncall-service
-  #   environment:
-  #     REACT_APP_ALERT_API: http://localhost:8001
-  #     REACT_APP_INCIDENT_API: http://localhost:8002
-  #     REACT_APP_ONCALL_API: http://localhost:8003
+  # ─── Service Metrics ─────────────────────────────────────
+  service-metrics:
+    build: ./services/service-metrics
+    container_name: service-metrics
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    environment:
+      PORT: 8005
+      PROMETHEUS_URL: http://prometheus:9090
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-incident_platform}
+      POLL_INTERVAL: 10000
+      NODE_ENV: production
 
   # ─── Prometheus ──────────────────────────────────────────
   prometheus:

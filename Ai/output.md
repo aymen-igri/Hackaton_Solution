@@ -1,64 +1,273 @@
-# Implementation Details for Prompt 1 - Node.js Mock Metrics Service
 
-## Objective
-To create a Node.js mock service that simulates various system and application metrics and alerts for Prometheus testing, running locally outside of Docker Compose, and to configure Prometheus to scrape these metrics.
+## 🔄 Flux de Données Validé
 
-## Changes Made
+# 📚 Documentation API & WebSocket – Service Metrics
 
-### 1. Created Node.js Mock Service (`services/mock-metrics`)
+## 🎯 Vue d'ensemble
 
-A new directory `services/mock-metrics` was created containing:
+Le **service-metrics** est un agrégateur de données qui :
+- **Scrape Prometheus** toutes les 10 secondes (instant + range queries)
+- **Interroge PostgreSQL** pour les incidents
+- **Expose une API REST** pour les données persistantes
+- **Diffuse via WebSocket** les metrics en temps réel
 
-*   **`package.json`**:
-    *   Initialized with `express` and `prom-client` dependencies.
-    *   Set up a `start` script: `"node server.js"`.
-*   **`metrics.js`**:
-    *   Utilizes `prom-client` to create and manage Prometheus metrics.
-    *   `client.Registry` and `client.collectDefaultMetrics` were used.
-    *   Numerous custom `client.Gauge` and `client.Counter` metrics were defined to simulate the requested alert types across categories:
-        *   Memory and CPU (e.g., `mock_high_memory_usage_bytes`, `mock_high_cpu_usage_percent`)
-        *   Storage / Disk (e.g., `mock_disk_usage_percent`, `mock_disk_read_errors_total`)
-        *   Network / Traffic (e.g., `mock_http_error_rate_percent`, `mock_service_up`)
-        *   Database / Persistent Storage (e.g., `mock_db_connection_failed`, `mock_db_slow_queries_total`)
-        *   Microservices / Application (e.g., `mock_pod_crash_loop`, `mock_queue_backlog_high_count`)
-        *   Prometheus Self-Monitoring (e.g., `mock_prometheus_scrape_failed`, `mock_prometheus_high_memory_bytes`)
-    *   Includes a `getMetrics` function to expose all registered metrics in Prometheus format.
-*   **`server.js`**:
-    *   An Express.js server was set up to listen on a configurable port (initially `8081`, then changed to `8082` due to port conflict).
-    *   **`/health` (GET)**: Basic health check.
-    *   **`/metrics` (GET)**: Exposes the Prometheus metrics by calling `getMetrics()` from `metrics.js`.
-    *   **Control Endpoints (POST)**: A comprehensive set of endpoints were created to allow external triggering and manipulation of each simulated metric. Examples:
-        *   `/simulate/memory-usage/:value`
-        *   `/simulate/cpu-spike/:status`
-        *   `/simulate/disk-usage/:device/:value`
-        *   `/simulate/service-up/:service/:status`
-        *   `/simulate/prometheus-scrape-failed/:job/:instance/:status`
+**Base URL:** `http://localhost:8005`
+**WebSocket URL:** `ws://localhost:8005`
 
-### 2. Modified Prometheus Configuration (`monitoring/prometheus/prometheus.yml`)
+---
 
-*   A new `scrape_config` entry was added under the `scrape_configs` section:
-    ```yaml
-      - job_name: 'mock-metrics'
-        metrics_path: /metrics
-        static_configs:
-          - targets: ['host.docker.internal:8082']
-    ```
-    This configures Prometheus to scrape the `mock-metrics` service every `15s` (global scrape interval) from the `/metrics` endpoint on the host machine via `host.docker.internal`.
+## 📡 REST API Endpoints
 
-### 3. Modified Docker Compose Configuration (`docker-compose.yml`)
+### 1️⃣ Health Check
 
-*   **Added `extra_hosts` to `prometheus` service:**
-    ```yaml
-        extra_hosts:
-          - "host.docker.internal:172.17.0.1"
-    ```
-    This was crucial for Linux environments, as `host.docker.internal` does not automatically resolve to the host's IP within Docker containers by default. `172.17.0.1` was identified as the `docker0` bridge IP. This ensures Prometheus can resolve `host.docker.internal` to reach the locally running mock service.
+#### Request
+```http
+GET /health
+```
 
-### 4. Documentation
+#### Response (200 OK)
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-02-09T10:30:00.000Z"
+}
+```
 
-*   **`Ai/output/mock-metrics-service-doc.md`**: Created a detailed documentation file explaining the purpose, architecture, all exposed endpoints (including control endpoints and their parameters), and usage instructions for the mock service.
-*   **`Ai/monitoring/prometheus/mock-metrics-scrape-config.md`**: Created a documentation file explaining the Prometheus scrape configuration for the mock service in `prometheus.yml`, detailing the use of `host.docker.internal` and `extra_hosts`.
-*   **Comment in `docker-compose.yml`**: Added a comment at the top of `docker-compose.yml` to inform users about the external nature of the mock metrics service and how to start it.
+#### Exemple cURL
+```bash
+curl http://localhost:8005/health
+```
 
-## Conclusion
-The Node.js mock metrics service has been successfully implemented and configured to expose a wide range of simulated metrics. Prometheus has been updated to scrape this service. The primary remaining hurdle for full functionality is ensuring the host machine's firewall allows traffic on port `8082` from the Docker network, as this is an external factor beyond direct automation by the agent.
+#### Utilisation React
+```typescript
+async function checkHealth() {
+  const response = await fetch('http://localhost:8005/health');
+  const data = await response.json();
+  console.log(data.status); // "ok"
+}
+```
+
+---
+
+### 2️⃣ Metrics Prometheus (format texte)
+
+#### Request
+```http
+GET /metrics
+```
+
+#### Response (200 OK)
+````plaintext
+# HELP cpu_usage_seconds_total Total number of seconds the CPU has been in use.
+# TYPE cpu_usage_seconds_total counter
+cpu_usage_seconds_total{job="mock-metrics",instance="host.docker.internal:8081"} 0.15
+# HELP memory_usage_bytes Current memory usage in bytes.
+# TYPE memory_usage_bytes gauge
+memory_usage_bytes{job="mock-metrics",instance="host.docker.internal:8081"} 256000000
+# HELP disk_usage_percent Disk usage percentage.
+# TYPE disk_usage_percent gauge
+disk_usage_percent{job="mock-metrics",instance="host.docker.internal:8081"} 75.5
+# HELP http_requests_total Total number of HTTP requests received.
+# TYPE http_requests_total counter
+http_requests_total{job="mock-metrics",instance="host.docker.internal:8081"} 150
+# HELP request_duration_seconds Duration of HTTP requests in seconds.
+# TYPE request_duration_seconds histogram
+request_duration_seconds{job="mock-metrics",instance="host.docker.internal:8081",le="0.1"} 50
+request_duration_seconds{job="mock-metrics",instance="host.docker.internal:8081",le="0.2"} 100
+request_duration_seconds{job="mock-metrics",instance="host.docker.internal:8081",le="0.5"} 150
+request_duration_seconds{job="mock-metrics",instance="host.docker.internal:8081",le="1"} 150
+request_duration_seconds{job="mock-metrics",instance="host.docker.internal:8081",le="+Inf"} 150
+````
+
+---
+
+## 📊 WebSocket Channels
+
+### 1️⃣ Metrics Updates
+
+**Channel:** `metrics`
+
+#### Message Format
+```json
+{
+  "cpu_usage_seconds_total": 0.15,
+  "memory_usage_bytes": 256000000,
+  "disk_usage_percent": 75.5,
+  "http_requests_total": 150,
+  "request_duration_seconds": {
+    "0.1": 50,
+    "0.2": 100,
+    "0.5": 150,
+    "1": 150
+  }
+}
+```
+
+#### Exemple d'Intégration React
+```typescript
+import { useEffect } from 'react';
+
+function MetricsComponent() {
+  useEffect(() => {
+    const socket = new WebSocket('ws://localhost:8005');
+
+    socket.onmessage = (event) => {
+      const metrics = JSON.parse(event.data);
+      console.log('Metrics mises à jour:', metrics);
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, []);
+
+  return <div>Vérifiez la console pour les mises à jour des métriques.</div>;
+}
+```
+
+---
+
+## ⚙️ Configuration
+
+### 1️⃣ Variables d'Environnement
+
+| Nom                  | Description                              | Valeur par Défaut |
+|----------------------|------------------------------------------|-------------------|
+| `PROMETHEUS_URL`    | URL de Prometheus                        | `http://localhost:9090` |
+| `ALERTMANAGER_URL`  | URL d'Alertmanager                      | `http://localhost:9093` |
+| `SCRAPE_INTERVAL`   | Intervalle de scraping (en secondes)   | `10`              |
+| `MOCK_SERVICE_PORT` | Port du Mock Service                    | `8081`            |
+
+### 2️⃣ Exemples de Configuration
+
+#### Docker Compose
+```yaml
+version: '3.8'
+services:
+  prometheus:
+    image: prom/prometheus:v2.31.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  alertmanager:
+    image: prom/alertmanager:v0.21.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+  mock-service:
+    image: mock-service:latest
+    ports:
+      - "8081:8081"
+```
+
+#### Kubernetes
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  ports:
+    - port: 9090
+  selector:
+    app: prometheus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.31.1
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+```
+
+---
+
+## 🚀 Déploiement
+
+### 1️⃣ Prérequis
+
+- Docker et Docker Compose installés
+- Accès à un cluster Kubernetes (pour les exemples Kubernetes)
+- `kubectl` configuré pour accéder au cluster
+
+### 2️⃣ Instructions
+
+#### Docker Compose
+```bash
+# Lancer les services
+docker-compose up -d
+
+# Vérifier les logs
+docker-compose logs -f
+```
+
+#### Kubernetes
+```bash
+# Appliquer les configurations
+kubectl apply -f prometheus-deployment.yaml
+
+# Vérifier les pods
+kubectl get pods -l app=prometheus
+```
+
+---
+
+## 📚 Références
+
+- [Documentation Prometheus](https://prometheus.io/docs/introduction/overview/)
+- [Documentation Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/)
+- [Documentation Docker Compose](https://docs.docker.com/compose/)
+- [Documentation Kubernetes](https://kubernetes.io/docs/home/)
+
+---
+
+## 🛠️ Dépannage
+
+### 1️⃣ Problèmes Courants
+
+- **Problème :** Le Mock Service ne démarre pas.
+  - **Solution :** Vérifiez les logs du Mock Service pour des erreurs de syntaxe ou des problèmes de dépendances.
+
+- **Problème :** Prometheus ne scrape pas les métriques.
+  - **Solution :** Assurez-vous que l'URL de scrape dans `prometheus.yml` est correcte et que le Mock Service est accessible.
+
+- **Problème :** Alertmanager ne reçoit pas les alertes.
+  - **Solution :** Vérifiez la configuration d'Alertmanager et assurez-vous qu'il est en écoute sur le bon port.
+
+### 2️⃣ Logs et Monitoring
+
+- **Mock Service Logs :** `services/mock-metrics/mock-service.log`
+- **Prometheus Logs :** Via Docker Compose ou dans le pod Kubernetes
+- **Alertmanager Logs :** Via Docker Compose ou dans le pod Kubernetes
+
+---
+
+## 📅 Historique des Modifications
+
+| Date       | Version | Description                          |
+|------------|---------|--------------------------------------|
+| 2026-02-09 | 1.0     | Première version de la documentation |
+| 2026-02-10 | 1.1     | Ajout de la section API/WebSocket   |
+| 2026-02-11 | 1.2     | Mise à jour des exemples de config   |

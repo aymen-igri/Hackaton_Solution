@@ -119,5 +119,33 @@ router.get('/test', (req, res) => {
   });
 });
 
+/**
+ * POST /api/v1/alerts
+ * Receives alerts for processing
+ */
+router.post('/api/v1/alerts', async (req, res) => {
+  try {
+    const alerts = Array.isArray(req.body) ? req.body : [req.body];
+    
+    const results = [];
+    for (const alert of alerts) {
+      const processed = await alertProcessor.processAlert(alert);
+      results.push(processed);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      processed: results.length,
+      data: results
+    });
+  } catch (err) {
+    console.error('Error processing alerts:', err);
+    res.status(500).json({
+      status: 'error',
+      message: err.message
+    });
+  }
+});
+
 module.exports = router;
 

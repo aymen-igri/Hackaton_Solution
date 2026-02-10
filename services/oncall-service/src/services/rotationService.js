@@ -10,23 +10,28 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
  */
 
 async function getCurrentOnCall(scheduleId) {
-  const schedule = await getSchedule(scheduleId);
-  if (!schedule) return { on_call: null, message: 'No active schedule found' };
+  try {
+    const schedule = await this.getSchedule(scheduleId);
+    if (!schedule || schedule.members.length === 0) {
+      return null;
+    }
 
-  const members = typeof schedule.members === 'string' ? JSON.parse(schedule.members) : schedule.members;
-  if (!members.length) return { on_call: null, message: 'Schedule has no members' };
+    const now = new Date();
+    const daysSinceStart = Math.floor(
+      (now - new Date(schedule.start_date)) / (1000 * 60 * 60 * 24)
+    );
+    const currentIndex = daysSinceStart % schedule.members.length;
 
-  const index = computeRotationIndex(schedule.rotation_type, schedule.start_date, members.length);
-
-  return {
-    schedule_id: schedule.id,
-    schedule_name: schedule.name,
-    rotation_type: schedule.rotation_type,
-    on_call: members[index],
-    index,
-    total_members: members.length,
-    since: schedule.start_date,
-  };
+    return {
+      member: schedule.members[currentIndex],
+      schedule_id: scheduleId,
+      rotation_day: currentIndex,
+      current_date: now.toISOString()
+    };
+  } catch (err) {
+    console.error('Error getting current on-call:', err);
+    throw err;
+  }
 }
 
 async function getNextOnCall(scheduleId) {

@@ -11,6 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('combined'));
 
+// Routes
 app.use('/health', healthRoutes);
 app.use('/api/incidents', incidentRoutes);
 
@@ -20,9 +21,11 @@ app.listen(config.port, () => {
   // 🆕 Start Redis queue workers alongside the Express server
   const { startAlertConsumer } = require('./workers/alertConsumer');
   const { startIncidentWorker } = require('./workers/incidentWorker');
+  const { startEscalationWorker } = require('./workers/escalationWorker');
 
   startAlertConsumer();
   startIncidentWorker();
+  startEscalationWorker();
 });
 
 module.exports = app;

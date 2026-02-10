@@ -46,6 +46,54 @@ async function getNextOnCall(scheduleId) {
   };
 }
 
+/**
+ * Get both primary (current) and secondary (next) on-call engineers
+ * Used for incident assignment and escalation
+ */
+async function getPrimaryAndSecondary(scheduleId) {
+  const schedule = await getSchedule(scheduleId);
+  if (!schedule) return { primary: null, secondary: null, message: 'No active schedule found' };
+
+  const members = typeof schedule.members === 'string' ? JSON.parse(schedule.members) : schedule.members;
+  if (!members.length) return { primary: null, secondary: null, message: 'Schedule has no members' };
+
+  const primaryIndex = computeRotationIndex(schedule.rotation_type, schedule.start_date, members.length);
+  const secondaryIndex = (primaryIndex + 1) % members.length;
+
+  return {
+    schedule_id: schedule.id,
+    schedule_name: schedule.name,
+    rotation_type: schedule.rotation_type,
+    primary: members[primaryIndex],
+    secondary: members[secondaryIndex],
+    primary_index: primaryIndex,
+    secondary_index: secondaryIndex,
+    total_members: members.length,
+  };
+}
+
+/**
+ * Get engineer details from the database by email
+ */
+async function getEngineerByEmail(email) {
+  const { rows } = await pool.query(
+    'SELECT id, email, name, phone, role, team_id, is_active FROM engineers WHERE email = $1 AND is_active = true',
+    [email]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Get all active engineers for a team
+ */
+async function getTeamEngineers(teamId) {
+  const { rows } = await pool.query(
+    'SELECT id, email, name, phone, role, team_id FROM engineers WHERE team_id = $1 AND is_active = true ORDER BY name',
+    [teamId]
+  );
+  return rows;
+}
+
 // ─── Helpers ───────────────────────────────────────────────
 
 async function getSchedule(scheduleId) {
@@ -83,4 +131,10 @@ function computeRotationIndex(rotationType, startDate, memberCount) {
   return periods % memberCount;
 }
 
-module.exports = { getCurrentOnCall, getNextOnCall };
+module.exports = { 
+  getCurrentOnCall, 
+  getNextOnCall, 
+  getPrimaryAndSecondary,
+  getEngineerByEmail,
+  getTeamEngineers 
+};

@@ -1,5 +1,6 @@
 const Redis = require('ioredis');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const config = require('../config');
 const redis = require('../redis');
@@ -10,6 +11,13 @@ const brpopRedis = new Redis(config.redisUrl);
 const pool = new Pool({ connectionString: config.databaseUrl });
 
 const rules = config.incidentRules;
+
+/**
+ * Generate a secure random token for magic link acknowledgment
+ */
+function generateAckToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 // ─── DB helpers for decision logic ─────────────────────────
 
@@ -111,11 +119,12 @@ async function shouldCreateIncident(alertData) {
  */
 async function createIncident(alertData, reason) {
   const id  = uuidv4();
+  const ack_token = generateAckToken();
   const now = new Date().toISOString();
 
   const sql = `
-    INSERT INTO incidents (id, title, severity, source, description, status, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, 'open', $6, $6)
+    INSERT INTO incidents (id, title, severity, source, description, status, ack_token, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $7)
     RETURNING *`;
   const { rows } = await pool.query(sql, [
     id,
@@ -123,6 +132,7 @@ async function createIncident(alertData, reason) {
     alertData.severity,
     alertData.source,
     alertData.description || '',
+    ack_token,
     now,
   ]);
   const incident = rows[0];
